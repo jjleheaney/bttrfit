@@ -39,11 +39,13 @@ export function LoginForm({
         <input type="hidden" name="next" value={next} />
         <Field label="Email" htmlFor="email">
           <Input
+            key={`email:${state.values?.email ?? ""}`}
             id="email"
             name="email"
             type="email"
             autoComplete="email"
             inputMode="email"
+            defaultValue={state.values?.email}
             required
           />
         </Field>

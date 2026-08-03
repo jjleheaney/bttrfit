@@ -15,15 +15,24 @@ export function SignupForm() {
     <div className="flex flex-col gap-6">
       <form action={action} className="flex flex-col gap-4">
         <Field label="First name" htmlFor="first_name">
-          <Input id="first_name" name="first_name" autoComplete="given-name" required />
+          <Input
+            key={`first_name:${state.values?.first_name ?? ""}`}
+            id="first_name"
+            name="first_name"
+            autoComplete="given-name"
+            defaultValue={state.values?.first_name}
+            required
+          />
         </Field>
         <Field label="Email" htmlFor="email">
           <Input
+            key={`email:${state.values?.email ?? ""}`}
             id="email"
             name="email"
             type="email"
             autoComplete="email"
             inputMode="email"
+            defaultValue={state.values?.email}
             required
           />
         </Field>

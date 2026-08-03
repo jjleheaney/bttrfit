@@ -20,7 +20,8 @@
   --surface: var(--chalk);
   --surface-raised: #ffffff;
   --text: var(--ink);
-  --text-muted: var(--slate);
+  /* Darker than --slate: #6B7280 on the steel ground is 3.98:1, under AA. */
+  --text-muted: #5b6270;
   --line: #d4d8de;
   --accent: var(--plate-blue);
   --accent-contrast: #ffffff;
