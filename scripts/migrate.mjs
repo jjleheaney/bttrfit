@@ -8,7 +8,10 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
-import "dotenv/config";
+import dotenv from "dotenv";
+
+// .env.local wins over anything already in the process environment.
+dotenv.config({ path: [".env.local", ".env"], override: true, quiet: true });
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations");
 
@@ -25,11 +28,21 @@ const client = new pg.Client({
 
 await client.connect();
 
+// The ledger lives in the public schema, so it must be locked down like every
+// other table there: PostgREST exposes public to the API roles by default.
 await client.query(`
   create table if not exists schema_migrations (
     filename text primary key,
     applied_at timestamptz not null default now()
   );
+  alter table schema_migrations enable row level security;
+  do $$
+  begin
+    if exists (select 1 from pg_roles where rolname = 'anon') then
+      revoke all on schema_migrations from anon, authenticated;
+    end if;
+  end
+  $$;
 `);
 
 const { rows } = await client.query("select filename from schema_migrations");
