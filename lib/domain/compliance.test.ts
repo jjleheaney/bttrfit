@@ -71,7 +71,15 @@ describe("weeklyCompliance", () => {
     expect(week.workoutsCompleted).toBe(0);
   });
 
-  it("counts only yes for a metric: unanswered is not a miss", () => {
+  it("does not report the drinks target as met for a week nobody has logged", () => {
+    // Zero recorded drinks is not the same as a week spent under the target.
+    expect(weeklyCompliance([], BLOCK, 4).drinksTargetMet).toBeNull();
+    expect(
+      weeklyCompliance([entry({ entryDate: "2026-01-05", drinks: 0 })], BLOCK, 1).drinksTargetMet,
+    ).toBe(true);
+  });
+
+  it("counts only yes for a metric, and tracks how often it was asked at all", () => {
     const entries = [
       entry({ entryDate: "2026-01-05", proteinHit: true, sleepHit: null }),
       entry({ entryDate: "2026-01-06", proteinHit: false, sleepHit: null }),
@@ -79,8 +87,10 @@ describe("weeklyCompliance", () => {
     ];
     const week = weeklyCompliance(entries, BLOCK, 1);
     expect(week.daysLogged).toBe(3);
-    expect(week.protein.days).toBe(1);
-    expect(week.sleep.days).toBe(1);
+    expect(week.protein).toEqual({ days: 1, answered: 2, rate: 1 / 3, answeredRate: 0.5 });
+    // The displayed rate is days over days logged, per the brief. answeredRate is
+    // the honest denominator for ranking: sleep was hit every time it was answered.
+    expect(week.sleep).toEqual({ days: 1, answered: 1, rate: 1 / 3, answeredRate: 1 });
   });
 
   it("counts workouts rather than rating them", () => {

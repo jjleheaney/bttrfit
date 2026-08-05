@@ -4,8 +4,16 @@ import type { Block, DailyEntry, IsoDate } from "./types";
 export type MetricCompliance = {
   /** Days the metric was answered yes. */
   days: number;
-  /** `days / daysLogged`, or `null` when nothing has been logged yet. */
+  /** Days the metric was answered either way. At most `daysLogged`: a day can be
+   * logged without this particular question being answered. */
+  answered: number;
+  /** `days / daysLogged`, the figure the brief specifies for display, or `null`
+   * when nothing has been logged yet. */
   rate: number | null;
+  /** `days / answered`: the metric judged only on the days it was answered, and
+   * `null` when it never was. Ranking uses this so a half-answered metric is not
+   * scored as though the blanks were misses. */
+  answeredRate: number | null;
 };
 
 export type WeeklyCompliance = {
@@ -18,9 +26,13 @@ export type WeeklyCompliance = {
   steps: MetricCompliance;
   /** A count, not a rate: there is no fixed weekly workout target. */
   workoutsCompleted: number;
+  /** Days the training question was answered either way. */
+  workoutsAnswered: number;
   totalDrinks: number;
   weeklyDrinksTarget: number;
-  drinksTargetMet: boolean;
+  /** `null` for a week with nothing logged: such a week has not met the target,
+   * and it has not missed it either. */
+  drinksTargetMet: boolean | null;
 };
 
 /** A day counts as logged once any single metric has been answered. Notes alone
@@ -59,8 +71,13 @@ export function answeredMetricCount(entry: DailyEntry): number {
   ].filter((value) => value !== null).length;
 }
 
-function metric(days: number, daysLogged: number): MetricCompliance {
-  return { days, rate: daysLogged === 0 ? null : days / daysLogged };
+function metric(days: number, answered: number, daysLogged: number): MetricCompliance {
+  return {
+    days,
+    answered,
+    rate: daysLogged === 0 ? null : days / daysLogged,
+    answeredRate: answered === 0 ? null : days / answered,
+  };
 }
 
 export function weeklyCompliance(
@@ -74,17 +91,24 @@ export function weeklyCompliance(
 
   const count = (predicate: (entry: DailyEntry) => boolean) => logged.filter(predicate).length;
   const totalDrinks = logged.reduce((total, entry) => total + (entry.drinks ?? 0), 0);
+  const boolMetric = (read: (entry: DailyEntry) => boolean | null) =>
+    metric(
+      count((entry) => read(entry) === true),
+      count((entry) => read(entry) !== null),
+      daysLogged,
+    );
 
   return {
     weekNumber,
     daysLogged,
-    protein: metric(count((entry) => entry.proteinHit === true), daysLogged),
-    sleep: metric(count((entry) => entry.sleepHit === true), daysLogged),
-    steps: metric(count((entry) => entry.stepsHit === true), daysLogged),
+    protein: boolMetric((entry) => entry.proteinHit),
+    sleep: boolMetric((entry) => entry.sleepHit),
+    steps: boolMetric((entry) => entry.stepsHit),
     workoutsCompleted: count((entry) => entry.workoutDone === true),
+    workoutsAnswered: count((entry) => entry.workoutDone !== null),
     totalDrinks,
     weeklyDrinksTarget: block.weeklyDrinksTarget,
-    drinksTargetMet: totalDrinks <= block.weeklyDrinksTarget,
+    drinksTargetMet: daysLogged === 0 ? null : totalDrinks <= block.weeklyDrinksTarget,
   };
 }
 

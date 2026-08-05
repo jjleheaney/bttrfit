@@ -35,22 +35,28 @@ export type WeeklyFocus = {
  * or under target is full marks, and overshooting scales down by how far.
  */
 function alcoholRate(compliance: WeeklyCompliance): number {
-  if (compliance.drinksTargetMet) return 1;
+  if (compliance.drinksTargetMet !== false) return 1;
   if (compliance.weeklyDrinksTarget <= 0) return 0;
   return Math.max(0, Math.min(1, compliance.weeklyDrinksTarget / compliance.totalDrinks));
 }
 
 function workoutRate(compliance: WeeklyCompliance): number {
-  const expected = (WORKOUT_RANKING_BASELINE_PER_WEEK * compliance.daysLogged) / 7;
+  const expected = (WORKOUT_RANKING_BASELINE_PER_WEEK * compliance.workoutsAnswered) / 7;
   if (expected <= 0) return 1;
   return Math.min(1, compliance.workoutsCompleted / expected);
 }
 
+/**
+ * Ranking is done on `answeredRate`, not the displayed rate: a metric is judged on
+ * the days it was answered, so leaving a question blank neither counts as a miss
+ * nor, once it is answered on any day, hides the misses. A metric never answered
+ * scores full marks, because there is nothing to fix that the user has admitted to.
+ */
 export function comparableRates(compliance: WeeklyCompliance): Record<MetricKey, number> {
   return {
-    protein: compliance.protein.rate ?? 1,
-    steps: compliance.steps.rate ?? 1,
-    sleep: compliance.sleep.rate ?? 1,
+    protein: compliance.protein.answeredRate ?? 1,
+    steps: compliance.steps.answeredRate ?? 1,
+    sleep: compliance.sleep.answeredRate ?? 1,
     workouts: workoutRate(compliance),
     alcohol: alcoholRate(compliance),
   };
