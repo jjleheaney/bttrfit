@@ -31,7 +31,9 @@ export function Stepper({
       <div className="flex items-center gap-1.5">
         <StepButton
           label={`One fewer ${label.toLowerCase()}`}
-          disabled={current <= min}
+          // Live while the question is unanswered, so the commonest answer — none
+          // — is one tap rather than up-then-down.
+          disabled={value !== null && current <= min}
           onClick={() => onChange(Math.max(min, current - 1))}
         >
           −

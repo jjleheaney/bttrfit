@@ -206,6 +206,9 @@ export function TodayScreen({
             Note
           </label>
           <textarea
+            // Uncontrolled, so it has to be remounted per day: otherwise the text
+            // typed for one day stays on screen and is saved against the next.
+            key={date}
             id="notes"
             rows={2}
             defaultValue={entry.notes ?? ""}

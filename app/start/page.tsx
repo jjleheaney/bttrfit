@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  blockIsOver,
   getActiveBlock,
   getLastBlock,
   getLatestRecordedWeight,
@@ -20,7 +21,9 @@ export default async function StartPage() {
   ]);
   const timeZone = await currentTimeZone();
 
-  if (active) {
+  // An expired block still carries `status = 'active'` until the next block is
+  // started, so it must not stand in the way of starting one.
+  if (active && !blockIsOver(active, today)) {
     return (
       <main className="flex flex-1 flex-col justify-center gap-3 px-5 py-10">
         <h1 className="font-display text-display uppercase tracking-tight">

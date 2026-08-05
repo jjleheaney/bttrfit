@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import {
   SENTINEL_LIFT_MENU,
   SENTINEL_LIFT_SLOTS,
+  daysBetween,
   isIsoDate,
   liftDisplayName,
   parseDecimal,
@@ -11,7 +12,17 @@ import {
   parseWeight,
   type UnitPreference,
 } from "@/lib/domain";
-import { createBlock, getActiveBlock } from "@/lib/data/blocks";
+import { completeExpiredBlocks, createBlock, getActiveBlock } from "@/lib/data/blocks";
+import { currentDate } from "@/lib/data/today";
+
+/**
+ * The flow only offers today or next Monday. The window is wider than that so a
+ * timezone disagreement never rejects a legitimate setup, but a Server Function
+ * is a public POST endpoint: without a bound, a block dated to 1970 or 2140
+ * would drive every week and day calculation from there.
+ */
+const EARLIEST_START_DAYS_BEFORE_TODAY = 7;
+const LATEST_START_DAYS_AFTER_TODAY = 14;
 
 export type StartBlockInput = {
   firstName: string;
@@ -31,6 +42,11 @@ export type StartBlockResult = { ok: false; error: string };
  * hold the one-active-block slot hostage.
  */
 export async function startBlock(input: StartBlockInput): Promise<StartBlockResult> {
+  const today = await currentDate();
+
+  // A block whose eight weeks are over must not keep the active slot, or the
+  // user can never start another one.
+  await completeExpiredBlocks(today);
   if (await getActiveBlock()) {
     return { ok: false, error: "You already have an active block." };
   }
@@ -39,6 +55,10 @@ export async function startBlock(input: StartBlockInput): Promise<StartBlockResu
 
   if (!isIsoDate(input.startDate)) {
     return { ok: false, error: "Pick a start date." };
+  }
+  const offset = daysBetween(today, input.startDate);
+  if (offset < -EARLIEST_START_DAYS_BEFORE_TODAY || offset > LATEST_START_DAYS_AFTER_TODAY) {
+    return { ok: false, error: "A block starts today or on an upcoming day." };
   }
 
   const weight = parseWeight(input.startingWeight, unit);

@@ -29,6 +29,7 @@ export async function setTimeZone(timeZone: string): Promise<void> {
     maxAge: TIME_ZONE_COOKIE_MAX_AGE,
     sameSite: "lax",
     path: "/",
+    secure: process.env.NODE_ENV === "production",
   });
 }
 
@@ -119,9 +120,12 @@ export async function logLifts(weekNumber: number, lifts: LiftInput[]): Promise<
     // RLS decides whether these lift ids belong to the caller: an id from another
     // user's block fails the policy rather than being silently written.
     await saveLiftEntries(weekNumber, lifts);
-    refresh();
-    return { ok: true };
   } catch {
     return { ok: false, error: "Could not save those lifts. Try again." };
   }
+
+  // Outside the try: the lifts are already stored, so a refresh problem must not
+  // be reported as a failed save and invite the user to enter them twice.
+  refresh();
+  return { ok: true };
 }

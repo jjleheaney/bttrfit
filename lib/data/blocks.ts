@@ -126,6 +126,25 @@ export async function getLastBlock(): Promise<BlockRecord | null> {
   return data ? toBlockRecord(data) : null;
 }
 
+/**
+ * Retires any active block whose eight weeks are behind the user.
+ *
+ * `status` is what the one-active-block index keys on, so leaving an expired
+ * block active makes the app a dead end: no more check-ins, and the next block
+ * refused because a block is "already running".
+ */
+export async function completeExpiredBlocks(today: IsoDate): Promise<void> {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase
+    .from("blocks")
+    .update({ status: "completed" })
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .lt("end_date", today);
+
+  if (error) throw error;
+}
+
 /** The lifts a block was built around, in slot order. Prefills the next block. */
 export async function getLiftKeysForBlock(blockId: string): Promise<string[]> {
   const { supabase } = await requireUser();
