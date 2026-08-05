@@ -114,6 +114,25 @@
   }
 }
 
+/*
+ * The app's one piece of motion: the day resolving into its completed state, and
+ * the lift statuses landing after a save. Everything else is instant on purpose.
+ */
+@keyframes resolve-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.resolve-in {
+  animation: resolve-in 220ms ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

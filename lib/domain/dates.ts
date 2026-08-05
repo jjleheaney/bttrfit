@@ -49,6 +49,34 @@ export function compareDates(a: IsoDate, b: IsoDate): number {
   return toEpochDay(a) - toEpochDay(b);
 }
 
+/**
+ * The calendar date it currently is somewhere. A check-in belongs to the day the
+ * user is living in, not the day it is in UTC: at 23:30 in London during summer
+ * those differ, and the server has no business guessing.
+ *
+ * Falls back to UTC for an unrecognised zone rather than throwing, because the
+ * value arrives from a client and a bad one must not break the check-in.
+ */
+export function isoDateInTimeZone(instant: Date, timeZone: string): IsoDate {
+  try {
+    // en-CA formats as YYYY-MM-DD.
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(instant);
+  } catch {
+    return fromEpochDay(Math.floor(instant.getTime() / MS_PER_DAY));
+  }
+}
+
+/** ISO weekday, Monday 1 through Sunday 7. */
+export function weekdayNumber(date: IsoDate): number {
+  // Epoch day 0 was a Thursday, hence the offset of 3.
+  return ((((toEpochDay(date) + 3) % 7) + 7) % 7) + 1;
+}
+
 /** Inclusive at both ends. */
 export function datesBetween(from: IsoDate, to: IsoDate): IsoDate[] {
   const span = daysBetween(from, to);

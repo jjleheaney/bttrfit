@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { addDays, compareDates, datesBetween, daysBetween, fromEpochDay, isIsoDate, toEpochDay } from "./dates";
+import {
+  addDays,
+  compareDates,
+  datesBetween,
+  daysBetween,
+  fromEpochDay,
+  isIsoDate,
+  isoDateInTimeZone,
+  toEpochDay,
+  weekdayNumber,
+} from "./dates";
 
 describe("isIsoDate", () => {
   it("accepts well-formed dates", () => {
@@ -19,6 +29,28 @@ describe("isIsoDate", () => {
     expect(isIsoDate("2026-01-05T00:00:00Z")).toBe(false);
     expect(isIsoDate(20260105)).toBe(false);
     expect(isIsoDate(null)).toBe(false);
+  });
+});
+
+describe("isoDateInTimeZone", () => {
+  it("gives the date the user is living in, not the date in UTC", () => {
+    // 23:30 in London on a summer evening is already tomorrow in UTC terms only
+    // in the other direction: the check-in still belongs to the 5th.
+    const lateEvening = new Date("2026-07-05T22:30:00Z");
+    expect(isoDateInTimeZone(lateEvening, "Europe/London")).toBe("2026-07-05");
+    expect(isoDateInTimeZone(lateEvening, "Australia/Sydney")).toBe("2026-07-06");
+    expect(isoDateInTimeZone(lateEvening, "America/Los_Angeles")).toBe("2026-07-05");
+  });
+
+  it("puts a small-hours check-in on the day the user thinks it is", () => {
+    const afterMidnightInSydney = new Date("2026-07-05T15:10:00Z");
+    expect(isoDateInTimeZone(afterMidnightInSydney, "Australia/Sydney")).toBe("2026-07-06");
+  });
+
+  it("falls back to UTC for a zone it does not recognise rather than throwing", () => {
+    const instant = new Date("2026-07-05T22:30:00Z");
+    expect(isoDateInTimeZone(instant, "Middle/Earth")).toBe("2026-07-05");
+    expect(isoDateInTimeZone(instant, "")).toBe("2026-07-05");
   });
 });
 
@@ -64,6 +96,13 @@ describe("date arithmetic", () => {
     ]);
     expect(datesBetween("2026-01-05", "2026-01-05")).toEqual(["2026-01-05"]);
     expect(datesBetween("2026-01-07", "2026-01-05")).toEqual([]);
+  });
+
+  it("numbers weekdays from Monday", () => {
+    expect(weekdayNumber("2026-01-05")).toBe(1); // Monday
+    expect(weekdayNumber("2026-01-11")).toBe(7); // Sunday
+    expect(weekdayNumber("1970-01-01")).toBe(4); // Thursday, epoch day 0
+    expect(weekdayNumber("1969-12-28")).toBe(7); // Before the epoch
   });
 
   it("refuses to do arithmetic on a malformed date", () => {

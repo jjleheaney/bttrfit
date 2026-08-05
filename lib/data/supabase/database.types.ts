@@ -118,7 +118,15 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "daily_entries_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       sentinel_lifts: {
         Row: {
@@ -142,7 +150,15 @@ export type Database = {
           lift_key?: string;
           display_name?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "sentinel_lifts_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       lift_entries: {
         Row: {
@@ -169,7 +185,15 @@ export type Database = {
           weight?: number;
           logged_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "lift_entries_sentinel_lift_id_fkey";
+            columns: ["sentinel_lift_id"];
+            isOneToOne: false;
+            referencedRelation: "sentinel_lifts";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<never, never>;
