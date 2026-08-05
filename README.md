@@ -93,7 +93,11 @@ flow should still upsert rather than assume the row exists.
 
 ### Seeding
 
-Seed data lands in a later phase.
+`lib/domain/fixtures.ts` holds the datasets the domain tests are verified against:
+a complete eight week block that walks every row of the verdict table, a user two
+days into week 1, and a block with a three day lapse. The script that writes them
+into Supabase lands with the core loop; the definitions live in the domain layer so
+the seed and the tests cannot drift apart.
 
 ## Commands
 
