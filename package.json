@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:rls-check": "node scripts/rls-smoke-test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.3",

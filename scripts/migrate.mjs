@@ -27,7 +27,21 @@ const client = new pg.Client({
   ssl: { rejectUnauthorized: false },
 });
 
-await client.connect();
+try {
+  await client.connect();
+} catch (error) {
+  // db.<ref>.supabase.co resolves to IPv6 only, which many networks and CI
+  // runners cannot reach. The session pooler host is dual-stack.
+  if (error.code === "ENETUNREACH" || error.code === "EHOSTUNREACH") {
+    console.error(
+      "Could not reach the database host. Use the session pooler URI\n" +
+        "(Supabase → Connect → Session pooler:\n" +
+        "  postgresql://postgres.<ref>:<password>@aws-N-<region>.pooler.supabase.com:5432/postgres)\n" +
+        "rather than the direct db.<ref>.supabase.co host, which is IPv6 only.",
+    );
+  }
+  throw error;
+}
 
 // The ledger lives in the public schema, so it must be locked down like every
 // other table there: PostgREST exposes public to the API roles by default.
