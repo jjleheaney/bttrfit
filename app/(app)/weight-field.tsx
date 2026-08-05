@@ -24,6 +24,9 @@ export function WeightField({
   const shown = value ?? prefill;
   const [draft, setDraft] = useState<string>(shown === null ? "" : shown.toFixed(1));
   const [error, setError] = useState<string | null>(null);
+  // Blurring the field must not turn the suggestion into a measurement: accepting
+  // the prefill has to be a deliberate act (the tick, a stepper, or typing).
+  const [edited, setEdited] = useState(false);
 
   function commit(raw: string) {
     if (raw.trim() === "") {
@@ -66,8 +69,13 @@ export function WeightField({
           autoComplete="off"
           value={draft}
           placeholder="—"
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={(event) => commit(event.target.value)}
+          onChange={(event) => {
+            setEdited(true);
+            setDraft(event.target.value);
+          }}
+          onBlur={(event) => {
+            if (edited || value !== null) commit(event.target.value);
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();

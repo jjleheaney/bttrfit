@@ -48,7 +48,10 @@ export default async function StartPage() {
       {/* Before the first check-in there is no cookie yet, and "start today" has
           to mean the user's today rather than UTC's. */}
       <TimezoneSync known={timeZone} />
+      {/* Keyed on the date so the default start date is recomputed once the real
+          timezone lands, rather than staying on UTC's next Monday. */}
       <StartFlow
+        key={today}
         today={today}
         prefill={{
           firstName: profile.firstName,

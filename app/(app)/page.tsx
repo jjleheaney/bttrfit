@@ -54,7 +54,11 @@ export default async function TodayPage() {
   );
 
   return (
+    // Keyed on the date: the first render of a fresh browser is UTC-derived until
+    // TimezoneSync lands the real zone, and the corrected day has to reach the
+    // screen's own state rather than only its props.
     <TodayScreen
+      key={today}
       block={{
         startDate: block.startDate,
         startingWeight: block.startingWeight,
