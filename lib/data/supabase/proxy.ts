@@ -42,15 +42,28 @@ export async function updateSession(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return redirectPreservingCookies(redirectUrl, response);
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";
     redirectUrl.search = "";
-    return NextResponse.redirect(redirectUrl);
+    return redirectPreservingCookies(redirectUrl, response);
   }
 
   return response;
+}
+
+/**
+ * getUser() may have rotated the session cookies onto `response`. Returning a
+ * fresh redirect would drop those Set-Cookie headers and sign the user out on
+ * the very next request, so they are carried over.
+ */
+function redirectPreservingCookies(url: URL, response: NextResponse) {
+  const redirect = NextResponse.redirect(url);
+  for (const cookie of response.cookies.getAll()) {
+    redirect.cookies.set(cookie);
+  }
+  return redirect;
 }

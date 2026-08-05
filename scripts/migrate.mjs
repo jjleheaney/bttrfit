@@ -10,8 +10,9 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import dotenv from "dotenv";
 
-// .env.local wins over anything already in the process environment.
-dotenv.config({ path: [".env.local", ".env"], override: true, quiet: true });
+// Later paths win under `override`, so .env.local beats both .env and any
+// stale value already exported into the process environment.
+dotenv.config({ path: [".env", ".env.local"], override: true, quiet: true });
 
 const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "supabase", "migrations");
 

@@ -1,3 +1,4 @@
+import { safeNextPath } from "@/lib/auth/next-path";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -16,7 +17,7 @@ export default async function LoginPage({
         </p>
       </header>
       <LoginForm
-        next={next ?? "/"}
+        next={safeNextPath(next)}
         initialError={
           error === "link_expired"
             ? "That link has expired or has already been used. Request a new one."

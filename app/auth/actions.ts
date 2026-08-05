@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/data/supabase/server";
+import { safeNextPath } from "@/lib/auth/next-path";
 
 export type AuthState = {
   error?: string;
@@ -34,8 +35,9 @@ function friendlyAuthError(message: string): string {
 
 async function originUrl(path: string) {
   const headerList = await headers();
+  // `||`, not `??`: .env.example ships the key with an empty value.
   const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ||
     `${headerList.get("x-forwarded-proto") ?? "http"}://${headerList.get("host")}`;
   return `${origin}${path}`;
 }
@@ -46,7 +48,7 @@ export async function signInWithPassword(
 ): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  const next = String(formData.get("next") ?? "/");
+  const next = safeNextPath(String(formData.get("next") ?? "/"));
 
   if (!email || !password) {
     return { error: "Enter your email and password.", values: { email } };
@@ -71,7 +73,7 @@ export async function sendMagicLink(
   formData: FormData,
 ): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
-  const next = String(formData.get("next") ?? "/");
+  const next = safeNextPath(String(formData.get("next") ?? "/"));
 
   if (!email) {
     return { error: "Enter your email address." };
