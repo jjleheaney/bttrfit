@@ -34,6 +34,9 @@ const admin = createClient(url, serviceKey, {
 
 const password = `rls-smoke-${crypto.randomUUID()}`;
 const results = [];
+/** Every auth user this run has created, registered the instant it exists so a
+ * later failure cannot leave one behind in the project. */
+const createdUserIds = [];
 
 function check(name, passed, detail = "") {
   results.push({ name, passed, detail });
@@ -49,6 +52,7 @@ async function createUser(label) {
     user_metadata: { first_name: label },
   });
   if (error) throw new Error(`Could not create ${label}: ${error.message}`);
+  createdUserIds.push(data.user.id);
 
   const client = createClient(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -148,10 +152,10 @@ async function checkCrossUserWrites(user, table, otherId, update) {
 }
 
 async function main() {
-  const alice = await createUser("alice");
-  const bob = await createUser("bob");
-
   try {
+    const alice = await createUser("alice");
+    const bob = await createUser("bob");
+
     // The signup trigger, not the client, is responsible for the profile row.
     for (const user of [alice, bob]) {
       const { data } = await user.client.from("profiles").select("id, first_name");
@@ -224,10 +228,13 @@ async function main() {
       `first_name is still ${bobProfile?.first_name}`,
     );
   } finally {
-    for (const user of [alice, bob]) {
-      await admin.auth.admin.deleteUser(user.id);
+    for (const id of createdUserIds) {
+      const { error } = await admin.auth.admin.deleteUser(id);
+      if (error) console.error(`could not delete test user ${id}: ${error.message}`);
     }
-    console.log("\ncleaned up both test users (cascades remove their rows)");
+    console.log(
+      `\ncleaned up ${createdUserIds.length} test user(s) (cascades remove their rows)`,
+    );
   }
 
   const failed = results.filter((result) => !result.passed);
