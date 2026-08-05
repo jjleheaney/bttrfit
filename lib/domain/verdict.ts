@@ -80,7 +80,12 @@ export function recompVerdict({ weeklyDelta, liftStatuses }: VerdictInput): Verd
   const declined = count("declined");
   const notImproving = count("maintained", "declined");
 
-  if (weeklyDelta <= -WEIGHT_DELTA_THRESHOLD) {
+  // Week averages are means of one-decimal weights, so a delta the user reads as
+  // exactly -0.2 arrives as -0.19999999999999998. The tolerance keeps that on the
+  // side of the table the user expects.
+  const delta = Math.abs(weeklyDelta) < WEIGHT_DELTA_THRESHOLD - 1e-9 ? 0 : weeklyDelta;
+
+  if (delta <= -WEIGHT_DELTA_THRESHOLD + 1e-9) {
     if (holdingStrength >= LIFT_AGREEMENT) {
       return verdict(
         "recomping",
@@ -95,7 +100,7 @@ export function recompVerdict({ weeklyDelta, liftStatuses }: VerdictInput): Verd
         "Weight is falling and strength is going with it. Protein and training frequency are the first places to look.",
       );
     }
-  } else if (weeklyDelta >= WEIGHT_DELTA_THRESHOLD) {
+  } else if (delta >= WEIGHT_DELTA_THRESHOLD - 1e-9) {
     if (improved >= LIFT_AGREEMENT) {
       return verdict(
         "gaining",

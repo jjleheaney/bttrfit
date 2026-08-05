@@ -42,8 +42,10 @@ export function liftE1RM(entry: LiftEntry): number {
 
 export function liftStatus(current: LiftEntry, previous: LiftEntry): LiftStatus {
   const change = liftE1RM(current) / liftE1RM(previous) - 1;
-  if (change > LIFT_STATUS_THRESHOLD) return "improved";
-  if (change < -LIFT_STATUS_THRESHOLD) return "declined";
+  // A change of exactly 1% is "within +/- 1%", so the tolerance keeps binary
+  // floating point from reading 101/100 as 1.0000000000000009%.
+  if (change > LIFT_STATUS_THRESHOLD + Number.EPSILON) return "improved";
+  if (change < -LIFT_STATUS_THRESHOLD - Number.EPSILON) return "declined";
   return "maintained";
 }
 
