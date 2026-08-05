@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+/*
+ * BTTR Fit design tokens.
+ * Palette comes from Olympic bumper plates, chalk and the training logbook.
+ * Green / red / yellow carry status meaning only, never decoration.
+ */
+:root {
+  --ink: #0e1116;
+  --steel: #e7e9ed;
+  --chalk: #fafaf8;
+  --slate: #6b7280;
+  --plate-blue: #1b4fd8;
+  --plate-green: #00843d;
+  --plate-red: #c8102e;
+  --plate-yellow: #f2c200;
+
+  /* Semantic roles, light theme */
+  --ground: var(--steel);
+  --surface: var(--chalk);
+  --surface-raised: #ffffff;
+  --text: var(--ink);
+  /* Darker than --slate: #6B7280 on the steel ground is 3.98:1, under AA. */
+  --text-muted: #5b6270;
+  --line: #d4d8de;
+  --accent: var(--plate-blue);
+  --accent-contrast: #ffffff;
+  --hit: var(--plate-green);
+  --miss: var(--plate-red);
+  --attention: var(--plate-yellow);
+}
+
+.dark {
+  --ground: var(--ink);
+  --surface: #161b22;
+  --surface-raised: #1d232c;
+  --text: var(--chalk);
+  --text-muted: #9aa2ae;
+  --line: #2b323c;
+  --accent: #4c7dff;
+  --accent-contrast: #0e1116;
+  --hit: #16a75b;
+  --miss: #ef4159;
+  --attention: #f2c200;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-steel: var(--steel);
+  --color-chalk: var(--chalk);
+  --color-slate: var(--slate);
+  --color-plate-blue: var(--plate-blue);
+  --color-plate-green: var(--plate-green);
+  --color-plate-red: var(--plate-red);
+  --color-plate-yellow: var(--plate-yellow);
+
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-hit: var(--hit);
+  --color-miss: var(--miss);
+  --color-attention: var(--attention);
+
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  /* Explicit type scale. Body never drops below 16px: iOS zooms inputs below that. */
+  --text-caption: 0.875rem;
+  --text-caption--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.625rem;
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.75rem;
+  --text-display: 2rem;
+  --text-display--line-height: 2.125rem;
+  --text-hero: 2.75rem;
+  --text-hero--line-height: 2.75rem;
+
+  --spacing-tap: 3rem;
+}
+
+@layer base {
+  html {
+    background-color: var(--ground);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--ground);
+    color: var(--text);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    font-size: 1rem;
+  }
+
+  /* Numbers are logbook entries: monospaced and tabular so they never jitter. */
+  .tabular,
+  input[type="number"] {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
