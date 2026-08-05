@@ -41,7 +41,7 @@ scripts/                Migration runner and seeding
 
 ## Local setup
 
-Requires Node 20.9+.
+Requires Node 22 (see `.nvmrc`).
 
 ```bash
 npm install
@@ -57,7 +57,7 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Settings → API | browser and server |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Settings → API | browser and server |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API | seed script only, never the browser |
-| `SUPABASE_DB_URL` | Supabase → Settings → Database → connection string (URI) | `npm run db:migrate` |
+| `SUPABASE_DB_URL` | Supabase → Connect → **Session pooler** URI | `npm run db:migrate` |
 | `NEXT_PUBLIC_SITE_URL` | your deployed origin | auth email redirect links (optional locally) |
 
 ### Migrations
@@ -66,9 +66,30 @@ npm run dev
 once each, recording what it has run in a `schema_migrations` table. Migrations are
 plain SQL and forward-only. Add a new one as `NNNN_description.sql`.
 
+Use the **session pooler** connection string, not the direct `db.<ref>.supabase.co`
+host: the direct host resolves to IPv6 only, so it is unreachable from most CI
+runners and many networks and fails with `ENETUNREACH`. The pooler host
+(`aws-N-<region>.pooler.supabase.com:5432`) is dual-stack. `npm run db:migrate`
+says so too if it cannot connect.
+
+### Row level security
+
 Every table has RLS enabled and a user can only read or write their own rows.
 Ownership of `sentinel_lifts` and `lift_entries` is derived through `blocks` rather
 than duplicating `user_id`, so a lift entry can never disagree with its block.
+
+`npm run db:rls-check` proves it against the live project: it creates two throwaway
+confirmed users, has each seed a block, sentinel lift, lift entry and daily entry as
+themselves, then asserts that every cross-user read comes back empty and every
+cross-user update, delete, forged-`user_id` insert and write into the other user's
+block is refused. It deletes both users afterwards. Needs
+`SUPABASE_SERVICE_ROLE_KEY`, and creates the users through the admin API so it
+does not depend on email delivery.
+
+It also asserts the `on_auth_user_created` trigger produced exactly one `profiles`
+row per new user. The trigger runs inside the signup transaction, so a genuine
+failure aborts signup rather than leaving a user without a profile; the block setup
+flow should still upsert rather than assume the row exists.
 
 ### Seeding
 
@@ -84,6 +105,7 @@ Seed data lands in a later phase.
 | `npm run lint` | ESLint, including the domain boundary rule |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run db:migrate` | apply pending SQL migrations |
+| `npm run db:rls-check` | prove RLS isolation with two throwaway users |
 
 ## Conventions
 
