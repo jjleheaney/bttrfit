@@ -254,67 +254,36 @@ export type NewBlock = {
 };
 
 /**
- * Creates the block, its three sentinel lifts and the week 1 baseline top sets.
+ * Creates the profile, the block, its three sentinel lifts and the week 1
+ * baseline top sets — in one transaction, via the `create_block` function.
  *
- * Not a transaction: PostgREST has no cross-request transaction and RLS rules
- * out a security-definer function reaching across tables. A failure part-way
- * leaves the block without its lifts, so the setup flow's last step is retried
- * against the same block rather than creating a second one.
+ * Separate inserts could half-succeed, and a block without its lifts still holds
+ * the one-active-block index: the user would be unable to retry setup and unable
+ * to check in. The function runs as the caller (security invoker), so RLS still
+ * decides what it may write and it takes no user id from the client.
  */
 export async function createBlock(input: NewBlock): Promise<BlockRecord> {
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
 
-  await supabase
-    .from("profiles")
-    .upsert({ id: user.id, first_name: input.firstName, unit_preference: input.unitPreference });
-
-  const previous = await getLastBlock();
-  const blockNumber = (previous?.blockNumber ?? 0) + 1;
-
-  const { data: block, error } = await supabase
-    .from("blocks")
-    .insert({
-      user_id: user.id,
-      block_number: blockNumber,
-      start_date: input.startDate,
-      starting_weight: input.startingWeight,
-      protein_target_g: input.proteinTargetG,
-      weekly_drinks_target: input.weeklyDrinksTarget,
-    })
-    .select(BLOCK_COLUMNS)
-    .single();
+  const { data, error } = await supabase.rpc("create_block", {
+    p_first_name: input.firstName,
+    p_unit_preference: input.unitPreference,
+    p_start_date: input.startDate,
+    p_starting_weight: input.startingWeight,
+    p_protein_target_g: input.proteinTargetG,
+    p_weekly_drinks_target: input.weeklyDrinksTarget,
+    p_lifts: input.lifts.map((lift) => ({
+      slot: lift.slot,
+      lift_key: lift.liftKey,
+      display_name: lift.displayName,
+      reps: lift.reps,
+      weight: lift.weight,
+    })),
+  });
 
   if (error) throw error;
-
-  const { data: lifts, error: liftsError } = await supabase
-    .from("sentinel_lifts")
-    .insert(
-      input.lifts.map((lift) => ({
-        block_id: block.id,
-        slot: lift.slot,
-        lift_key: lift.liftKey,
-        display_name: lift.displayName,
-      })),
-    )
-    .select("id, slot");
-
-  if (liftsError) throw liftsError;
-
-  const { error: entriesError } = await supabase.from("lift_entries").insert(
-    (lifts ?? []).map((lift) => {
-      const source = input.lifts.find((candidate) => candidate.slot === lift.slot);
-      return {
-        sentinel_lift_id: lift.id,
-        week_number: 1,
-        reps: source?.reps ?? 1,
-        weight: source?.weight ?? 0,
-      };
-    }),
-  );
-
-  if (entriesError) throw entriesError;
-
-  return toBlockRecord(block);
+  if (!data) throw new Error("create_block returned no block");
+  return toBlockRecord(data);
 }
 
 /** Upserts the week's top set for each lift the user filled in. */
