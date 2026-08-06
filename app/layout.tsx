@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description:
     "A habit tracker for body recomposition. Six daily metrics, three sentinel lifts, eight week blocks.",
   applicationName: "BTTR Fit",
-  appleWebApp: { capable: true, title: "BTTR Fit", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "BTTR Fit", statusBarStyle: "black" },
 };
 
 export const viewport: Viewport = {
@@ -34,10 +34,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: plate.steel },
-    { media: "(prefers-color-scheme: dark)", color: plate.ink },
-  ],
+  // One colour, not a pair keyed on the OS preference: the app is dark whatever
+  // the phone is set to, and the browser chrome has to match the page it frames.
+  themeColor: plate.black,
 };
 
 export default function RootLayout({

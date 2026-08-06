@@ -3,10 +3,13 @@
 import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
+/**
+ * Dark is the app's theme; light is the option. The OS preference is deliberately
+ * not offered: a phone set to light mode should still open BTTR Fit in the dark.
+ */
 const OPTIONS = [
-  { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
-  { value: "system", label: "System" },
+  { value: "light", label: "Light" },
 ] as const;
 
 const noopSubscribe = () => () => {};
@@ -42,7 +45,7 @@ export function ThemeToggle() {
             className={`min-h-tap px-4 text-body rounded-sm ${
               selected
                 ? "bg-accent text-accent-contrast"
-                : "text-text-muted hover:text-text"
+                : "text-text-muted hover:bg-surface-raised hover:text-text"
             }`}
           >
             {option.label}

@@ -19,7 +19,7 @@ export function YesNo({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-md border px-3 py-1.5 [@media(max-height:720px)]:py-0",
+        "flex items-center justify-between gap-3 rounded-md border bg-surface px-3 py-1.5 [@media(max-height:720px)]:py-0",
         value === null ? "border-dashed border-attention" : "border-line",
       )}
       role="group"
@@ -73,9 +73,9 @@ function Choice({
         "min-h-tap w-16 rounded-md border text-body font-medium",
         selected
           ? tone === "hit"
-            ? "border-hit bg-hit text-white"
-            : "border-miss bg-miss text-white"
-          : "border-line bg-surface text-text-muted",
+            ? "border-hit bg-hit text-hit-contrast"
+            : "border-miss bg-miss text-miss-contrast"
+          : "border-line bg-surface-raised text-text-muted hover:border-accent hover:text-text",
       )}
     >
       {children}

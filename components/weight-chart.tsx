@@ -76,7 +76,7 @@ export function WeightChart({
               cx={x(index)}
               cy={y(point.weight)}
               r={1.8}
-              className="fill-text-muted opacity-50"
+              className="fill-text-muted opacity-70"
             />
           ),
         )}

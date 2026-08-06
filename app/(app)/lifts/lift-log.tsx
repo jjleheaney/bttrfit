@@ -181,7 +181,7 @@ export function LiftLog({
                   inputMode="numeric"
                   value={drafts[lift.id].reps}
                   onChange={(event) => update(lift.id, { reps: event.target.value })}
-                  className="tabular min-h-tap w-20 rounded-md border border-line bg-surface px-3 text-body"
+                  className="tabular min-h-tap w-20 rounded-md border border-line bg-field px-3 text-body text-text"
                 />
                 <span className="text-caption text-text-muted">reps at</span>
                 <label className="sr-only" htmlFor={`weight-${lift.id}`}>
@@ -192,7 +192,7 @@ export function LiftLog({
                   inputMode="decimal"
                   value={drafts[lift.id].weight}
                   onChange={(event) => update(lift.id, { weight: event.target.value })}
-                  className="tabular min-h-tap w-24 rounded-md border border-line bg-surface px-3 text-body"
+                  className="tabular min-h-tap w-24 rounded-md border border-line bg-field px-3 text-body text-text"
                 />
                 <span className="text-caption text-text-muted">{unit}</span>
               </div>

@@ -283,7 +283,7 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
                   <select
                     value={form.liftKeys[index]}
                     onChange={(event) => setAt("liftKeys", index, event.target.value)}
-                    className="min-h-tap rounded-md border border-line bg-surface px-3 text-body"
+                    className="min-h-tap rounded-md border border-line bg-field px-3 text-body text-text"
                   >
                     <option value="">Choose a lift</option>
                     {SENTINEL_LIFT_MENU.map((lift) => (
