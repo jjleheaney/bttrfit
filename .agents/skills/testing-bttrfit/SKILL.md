@@ -516,9 +516,9 @@ union all select 'sentinel_lifts', count(*) from sentinel_lifts
 Also navigate back to `/settings` afterwards — it must bounce to `/login?next=%2Fsettings`. Landing
 on `/login` once only proves a redirect happened, not that the session died.
 
-**Known gap (may still be present):** the clear-on-edit behaviour is wired into the targets and
-swap forms but **not** the delete-account confirmation, so a stale
-`That is not the email this account uses.` can remain on screen after you correct the address.
+All three forms clear their feedback on edit, including this one (#26): the refusal
+`That is not the email this account uses.` must disappear on the first keystroke after you correct
+the address. Assert that it goes — stale text above `Delete for good` is the failure mode here.
 
 ## Testing the CSV export
 
