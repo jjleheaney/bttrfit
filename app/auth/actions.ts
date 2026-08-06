@@ -119,7 +119,7 @@ export async function signUp(
     password,
     options: {
       data: { first_name: firstName },
-      emailRedirectTo: await originUrl("/auth/confirm?next=/"),
+      emailRedirectTo: await originUrl("/auth/confirm?next=/start"),
     },
   });
 
