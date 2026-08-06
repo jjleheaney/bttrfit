@@ -165,16 +165,12 @@ export function TodayScreen({
   }
 
   /**
-   * One nudge at a time, in order of urgency, and never the backfill prompt on a
-   * finished day: the result of the day the user just completed is the thing they
-   * came for, and it has to stay on screen on a 640px-tall phone. Two competing
-   * asks on a ten-second check-in is one too many anyway.
+   * One nudge at a time, in order of urgency. A finished day plus a nudge is a
+   * normal state — day 6 of every week — so both it and the day's result have to
+   * fit; what gives way is the chip row, not either of them. Two competing asks on
+   * a ten-second check-in is one too many anyway.
    */
-  const nudge = showLiftPrompt
-    ? "lifts"
-    : !complete && backdatePrompt && missing.length > 0
-      ? "backdate"
-      : null;
+  const nudge = showLiftPrompt ? "lifts" : backdatePrompt && missing.length > 0 ? "backdate" : null;
 
   const canGoBack = compareDates(addDays(date, -1), block.startDate) >= 0;
   const canGoForward = compareDates(date, today) < 0;
