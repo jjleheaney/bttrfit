@@ -15,10 +15,18 @@ export type CsvCell = string | number | boolean | null | undefined;
 /**
  * RFC 4180 quoting. Notes are free text, so a comma or a newline in one would
  * otherwise shift every later column of that row into the wrong field.
+ *
+ * Text cells that open with =, +, -, @, tab or CR are prefixed with a tab so a
+ * spreadsheet reads them as text, not a formula: a note is user-authored and the
+ * file is meant to be handed to a coach, so it must not run on their machine.
+ * Numbers take the raw path, keeping a negative weight numeric rather than
+ * defused.
  */
 function csvCell(value: CsvCell): string {
   if (value === null || value === undefined) return "";
-  const text = typeof value === "boolean" ? (value ? "yes" : "no") : String(value);
+  if (typeof value === "number") return String(value);
+  const raw = typeof value === "boolean" ? (value ? "yes" : "no") : value;
+  const text = /^[=+\-@\t\r]/.test(raw) ? `\t${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
