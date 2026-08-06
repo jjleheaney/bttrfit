@@ -165,9 +165,10 @@ export function TodayScreen({
   }
 
   /**
-   * One nudge at a time, in order of urgency. Stacking the lift prompt on top of
-   * the backfill prompt pushed the day's own result off a short screen, and two
-   * competing asks on a ten-second check-in is one too many anyway.
+   * One nudge at a time, in order of urgency. A finished day plus a nudge is a
+   * normal state — day 6 of every week — so both it and the day's result have to
+   * fit; what gives way is the chip row, not either of them. Two competing asks on
+   * a ten-second check-in is one too many anyway.
    */
   const nudge = showLiftPrompt ? "lifts" : backdatePrompt && missing.length > 0 ? "backdate" : null;
 
@@ -296,13 +297,15 @@ export function TodayScreen({
                 ? "1 day in the last week is not logged. Fill it in:"
                 : `${missing.length} days in the last week are not logged. Fill one in:`}
             </p>
-            <div className="mt-1 flex flex-wrap gap-2">
+            {/* One row that scrolls sideways rather than wrapping: three wrapped
+                rows of chips were 202px and pushed the day's result off screen. */}
+            <div className="-mx-1 mt-1 flex gap-2 overflow-x-auto px-1">
               {missing.map((missingDate) => (
                 <button
                   key={missingDate}
                   type="button"
                   onClick={() => setDate(missingDate)}
-                  className="tabular min-h-tap rounded-md border border-line px-3 text-caption"
+                  className="tabular min-h-tap shrink-0 rounded-md border border-line px-3 text-caption"
                 >
                   {formatDay(missingDate)}
                 </button>
