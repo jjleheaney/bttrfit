@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   WEEKS_PER_BLOCK,
+  compareDates,
   compareLiftWeek,
   contactSheet,
   weekDates,
@@ -54,9 +55,14 @@ export default async function WeekPage({
   const sheet = contactSheet(entries, block, weekNumber, today);
   // The trend reads across the whole block to date, not just this week: seven
   // points cannot show a trend, which is the lesson the chart exists to teach.
+  // Cut at today, because a trailing mean still returns a figure for tomorrow —
+  // computed from a window sliding off the end of the data, which would draw a
+  // direction the user has not weighed in for.
   const trend = weightSeries(
     entries,
-    Array.from({ length: weekNumber }, (_, index) => weekDates(block.startDate, index + 1)).flat(),
+    Array.from({ length: weekNumber }, (_, index) => weekDates(block.startDate, index + 1))
+      .flat()
+      .filter((date) => compareDates(date, today) <= 0),
   );
 
   const { compliance, verdict } = summary;
@@ -315,7 +321,9 @@ function LiftCard({
         >
           e1RM {e1rm.toFixed(1)}
           {unit}
-          {change === null ? "" : ` (${change > 0 ? "+" : "−"}${Math.abs(change * 100).toFixed(1)}%)`}
+          {change === null || Math.abs(change * 100) < 0.05
+            ? ""
+            : ` (${change > 0 ? "+" : "−"}${Math.abs(change * 100).toFixed(1)}%)`}
         </p>
       </div>
     </div>
