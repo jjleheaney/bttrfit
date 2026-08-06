@@ -15,15 +15,21 @@ import {
   getProfile,
   saveDailyEntry,
   saveLiftEntries,
+  signedIn,
   type DailyEntryPatch,
 } from "@/lib/data/blocks";
 import { TIME_ZONE_COOKIE, TIME_ZONE_COOKIE_MAX_AGE } from "@/lib/data/today";
 
 export type SaveResult = { ok: true } | { ok: false; error: string };
 
-/** Recorded once per browser so the server can tell which day the user is in. */
+/**
+ * Recorded once per browser so the server can tell which day the user is in.
+ * Exported server functions are public POST endpoints, so this authenticates
+ * like every other action rather than letting a stranger set the cookie.
+ */
 export async function setTimeZone(timeZone: string): Promise<void> {
   if (!/^[A-Za-z0-9_+\-/]{1,64}$/.test(timeZone)) return;
+  if (!(await signedIn())) return;
   const store = await cookies();
   store.set(TIME_ZONE_COOKIE, timeZone, {
     maxAge: TIME_ZONE_COOKIE_MAX_AGE,

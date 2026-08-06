@@ -107,8 +107,10 @@ export function TodayScreen({
     !liftsLoggedForWeek.includes(todayWeek);
 
   const backdatePrompt = shouldPromptBackdate(entryList, block.startDate, today);
+  // The day on screen is never offered as a day to go back and fill in: the chip
+  // would be a no-op and it would overstate how much is missing behind you.
   const missing = useMemo(
-    () => missingDates(entryList, block.startDate, today),
+    () => missingDates(entryList, block.startDate, today).filter((day) => day !== today),
     [entryList, block.startDate, today],
   );
 
@@ -121,6 +123,16 @@ export function TodayScreen({
   function save(patch: DayPatch) {
     const previous = entry;
     const next: DailyEntry = { ...previous, ...patch };
+    // Only what this write attempted is rolled back, so a second answer that
+    // landed while this one was in flight is not silently un-shown.
+    const revert: DayPatch = {};
+    if ("weight" in patch) revert.weight = previous.weight;
+    if ("proteinHit" in patch) revert.proteinHit = previous.proteinHit;
+    if ("workoutDone" in patch) revert.workoutDone = previous.workoutDone;
+    if ("sleepHit" in patch) revert.sleepHit = previous.sleepHit;
+    if ("stepsHit" in patch) revert.stepsHit = previous.stepsHit;
+    if ("drinks" in patch) revert.drinks = previous.drinks;
+    if ("notes" in patch) revert.notes = previous.notes;
     setEntries((current) => ({ ...current, [date]: next }));
     setState("saving");
     setError(null);
@@ -131,7 +143,10 @@ export function TodayScreen({
         setState("saved");
         return;
       }
-      setEntries((current) => ({ ...current, [date]: previous }));
+      setEntries((current) => ({
+        ...current,
+        [date]: { ...(current[date] ?? blankEntry(date)), ...revert },
+      }));
       setState("error");
       setError(result.error);
     });

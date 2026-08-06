@@ -57,6 +57,14 @@ async function requireUser() {
   return { supabase, user };
 }
 
+export async function signedIn(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user !== null;
+}
+
 export async function getProfile(): Promise<Profile> {
   const { supabase, user } = await requireUser();
   const { data } = await supabase
