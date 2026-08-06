@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Inter, IBM_Plex_Mono } from "next/font/google";
+import { ServiceWorker } from "@/components/service-worker";
 import { ThemeProvider } from "@/components/theme-provider";
 import { plate } from "@/lib/design/tokens";
 import "./globals.css";
@@ -27,6 +28,11 @@ export const metadata: Metadata = {
     "A habit tracker for body recomposition. Six daily metrics, three sentinel lifts, eight week blocks.",
   applicationName: "BTTR Fit",
   appleWebApp: { capable: true, title: "BTTR Fit", statusBarStyle: "black" },
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    // iOS ignores the manifest's icons entirely and reads this one.
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -52,6 +58,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-ground text-text">
         <ThemeProvider>{children}</ThemeProvider>
+        <ServiceWorker />
       </body>
     </html>
   );
