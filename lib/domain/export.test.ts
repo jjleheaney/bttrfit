@@ -57,6 +57,16 @@ describe("toCsv", () => {
     expect(csv.trimEnd().split("\r\n")).toHaveLength(2);
   });
 
+  it("defuses a note a spreadsheet would run as a formula", () => {
+    // Quoted because of the tab, and the tab is what stops Excel evaluating it.
+    expect(toCsv(["note"], [["=1+1"]])).toBe('note\r\n"\t=1+1"\r\n');
+    expect(toCsv(["note"], [["@SUM(A1)"]])).toBe('note\r\n"\t@SUM(A1)"\r\n');
+  });
+
+  it("leaves a negative number as a number rather than defusing it", () => {
+    expect(toCsv(["change"], [[-2.8]])).toBe("change\r\n-2.8\r\n");
+  });
+
   it("writes a header even with no rows, so the file is still parseable", () => {
     expect(toCsv(["a", "b"], [])).toBe("a,b\r\n");
   });

@@ -13,13 +13,24 @@ import { weekNumberFor } from "./weeks";
 export type CsvCell = string | number | boolean | null | undefined;
 
 /**
+ * Excel and Sheets read a leading `=`, `+`, `-` or `@` as a formula, so a note
+ * typed as "=1+1" runs on open — and the same trick reaches external data and
+ * shell prompts. Prefixing a tab defuses it while leaving the text readable, and
+ * it only ever applies to what the user typed themselves.
+ */
+function defuseFormula(text: string): string {
+  return /^[=+\-@\t\r]/.test(text) ? `\t${text}` : text;
+}
+
+/**
  * RFC 4180 quoting. Notes are free text, so a comma or a newline in one would
  * otherwise shift every later column of that row into the wrong field.
  */
 function csvCell(value: CsvCell): string {
   if (value === null || value === undefined) return "";
-  const text = typeof value === "boolean" ? (value ? "yes" : "no") : String(value);
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  if (typeof value === "number") return String(value);
+  const text = typeof value === "boolean" ? (value ? "yes" : "no") : defuseFormula(value);
+  return /[",\r\n\t]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 }
 
 export function toCsv(header: readonly string[], rows: readonly CsvCell[][]): string {

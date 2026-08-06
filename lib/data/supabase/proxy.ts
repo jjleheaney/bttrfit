@@ -42,8 +42,10 @@ export async function updateSession(request: NextRequest) {
 
   if (!user && pathname.startsWith("/api/")) {
     // A client asking for JSON or CSV must be told it is signed out, not handed
-    // the login page's HTML with a 200 on it.
-    return Response.json({ error: "Not signed in" }, { status: 401 });
+    // the login page's HTML with a 200 on it. The cookies come too: rejecting a
+    // stale session writes its removal onto `response`, and dropping that leaves
+    // the browser retrying the same dead token forever.
+    return withCookies(NextResponse.json({ error: "Not signed in" }, { status: 401 }), response);
   }
 
   if (!user && !isPublic) {
@@ -69,9 +71,12 @@ export async function updateSession(request: NextRequest) {
  * the very next request, so they are carried over.
  */
 function redirectPreservingCookies(url: URL, response: NextResponse) {
-  const redirect = NextResponse.redirect(url);
+  return withCookies(NextResponse.redirect(url), response);
+}
+
+function withCookies(outgoing: NextResponse, response: NextResponse) {
   for (const cookie of response.cookies.getAll()) {
-    redirect.cookies.set(cookie);
+    outgoing.cookies.set(cookie);
   }
-  return redirect;
+  return outgoing;
 }
