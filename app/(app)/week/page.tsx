@@ -43,9 +43,13 @@ export default async function WeekPage({
   const { block, entries, lifts, profile } = context;
   const unit = profile.unitPreference;
   const requested = Number(params.week);
-  // Before day one there is no current week; the block's first week is the only
-  // honest thing to show.
-  const currentWeek = weekNumberFor(block.startDate, today) ?? 1;
+  // Today sits outside the block's 56 days both before day one and after the
+  // last day, and the two cases want opposite answers: week one before it
+  // starts, week eight once it is over, so a finished block's later weeks stay
+  // reachable.
+  const currentWeek =
+    weekNumberFor(block.startDate, today) ??
+    (compareDates(today, block.startDate) < 0 ? 1 : WEEKS_PER_BLOCK);
   const weekNumber =
     Number.isInteger(requested) && requested >= 1 && requested <= WEEKS_PER_BLOCK
       ? requested
