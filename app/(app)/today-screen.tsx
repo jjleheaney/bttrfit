@@ -291,15 +291,14 @@ export function TodayScreen({
         )}
 
         {nudge === "backdate" && (
-          <div className="rounded-md border border-line bg-surface px-3 py-2 [@media(max-height:720px)]:py-1">
-            <p className="text-caption text-text-muted">
-              {missing.length === 1
-                ? "1 day in the last week is not logged. Fill it in:"
-                : `${missing.length} days in the last week are not logged. Fill one in:`}
+          // Label and chips on one line, the chips scrolling sideways. Wrapped
+          // chips came to 202px and a heading of its own wrapped to two lines at
+          // 360px: both pushed the day's own result behind the tab bar.
+          <div className="flex items-center gap-2 rounded-md border border-line bg-surface px-3 py-2 [@media(max-height:720px)]:py-1">
+            <p className="shrink-0 text-caption text-text-muted">
+              {missing.length === 1 ? "1 day missing:" : `${missing.length} days missing:`}
             </p>
-            {/* One row that scrolls sideways rather than wrapping: three wrapped
-                rows of chips were 202px and pushed the day's result off screen. */}
-            <div className="-mx-1 mt-1 flex gap-2 overflow-x-auto px-1">
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1">
               {missing.map((missingDate) => (
                 <button
                   key={missingDate}
