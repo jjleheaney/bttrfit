@@ -84,7 +84,7 @@ export function WeightField({
             }
           }}
           className={cn(
-            "tabular w-24 bg-transparent text-hero leading-none outline-none",
+            "tabular w-28 bg-transparent text-hero leading-none outline-none",
             value === null && "text-text-muted",
           )}
         />
