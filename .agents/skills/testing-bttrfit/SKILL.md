@@ -52,6 +52,81 @@ Mailinator inboxes are publicly readable if you do get an email through.
 - Route protection lives in `proxy.ts` (Next 16's renamed middleware) → `lib/data/supabase/proxy.ts`;
   public prefixes are `/login`, `/signup`, `/auth`.
 
+## Testing the deployed app (Vercel production) rather than localhost
+
+Production is `https://bttrfit-chi.vercel.app`. Before planning, check reachability and whether
+Vercel deployment protection is on — preview URLs are often gated, the production domain usually is
+not:
+
+```bash
+for p in / /login /signup /week /start; do
+  printf "%-8s %s\n" "$p" "$(curl -s -o /dev/null -w '%{http_code} -> %{redirect_url}' https://bttrfit-chi.vercel.app$p)"
+done
+# expect: /login,/signup = 200 ; /,/week,/start = 307 -> /login?next=...
+```
+
+Production may point at the **same** Supabase project as your local `.env.local`. Do not assume it
+either way, and do not echo env vars to find out (the inherited `NEXT_PUBLIC_SUPABASE_URL` can hold
+a non-URL secret value and printing it leaks it). Settle it non-destructively: sign up through the
+live UI, then look for that email in `auth.users` via `psql`. If it is there, the projects are
+shared and you can verify every write server-side.
+
+The app centres in a `max-w-md` column (`app/(app)/layout.tsx`), so desktop-width Chrome renders it
+fine. You only need DevTools device emulation for genuine responsive assertions — for a functional
+smoke test, skip it and keep the recording clean.
+
+### Confirm-email on/off is provable without guessing
+
+`signUp` (`app/auth/actions.ts`) redirects to `/` when `data.session` exists, and otherwise returns
+the literal string `Confirm your email. We have sent a link to …`. So the discriminator is the
+absence of that sentence, not "the page moved". Corroborate server-side — with confirmation off,
+new `auth.users` rows have `confirmed_at` already set:
+
+```sql
+select email, created_at, (confirmed_at is not null) as confirmed from auth.users where email like 'yourprefix%';
+```
+
+### Magic links are PKCE — never click them inside an email-preview iframe
+
+The Supabase email link is `…/auth/v1/verify?token=pkce_…&redirect_to=<site>/auth/confirm?next=…`,
+and `/auth/confirm` calls `exchangeCodeForSession`, which needs the `code_verifier` cookie set on
+the **app origin** when the link was requested.
+
+Mailinator's HTML tab renders the email in a cross-site `<iframe>`. Clicking `Sign in` there
+navigates the iframe, the app-origin cookie is not sent, and you get
+`/login?error=link_expired` → *"That link has expired or has already been used."* **This looks
+exactly like a real misconfiguration but is a harness artifact.** Also note mailinator's SPA can
+keep showing a previous message's navigated iframe, which makes a fresh link look already-consumed.
+
+Reliable procedure:
+1. Request the link from `/login` in the app tab (this sets the PKCE cookie on that origin).
+2. In mailinator, open the message and go to the **LINKS** tab — it shows the full untruncated URL
+   (the HTML tab's `href` is truncated in the DOM).
+3. Assert on `redirect_to`: it must be percent-encoded `https://<prod-domain>/auth/confirm`, not
+   `localhost`. This is the real check of Supabase's Site URL / redirect allowlist.
+4. Paste that URL into the **app tab's address bar** — a top-level navigation, which is what a real
+   mail client does. Magic links are single-use, so request a new one if you burned the token.
+
+Inbox URL: `https://www.mailinator.com/v4/public/inboxes.jsp?to=<local-part>` — public, no login.
+
+### Golden-path notes for a fresh production user
+- `/start` is an 8-step wizard: name → units → weight → protein (auto-suggested from bodyweight) →
+  drinks → three lift `select`s → per-lift `Reps`/`Weight` → start date. It refuses with
+  *"Block N is already running"* if a non-expired block exists, so use a brand-new user.
+- **Pick `Today`, not `Next Monday`**, or week 1 has not elapsed and the contact sheet is entirely
+  `future` — which proves nothing about rendering real data.
+- The wizard's top sets already create week-1 lift entries, so `/lifts` is pre-filled. To actually
+  exercise the write path, **edit** a value before pressing `Save week N lifts`; re-saving identical
+  numbers would pass even if the save were broken.
+- Today check-in auto-saves per control (no Save button); assert the rendered state and the
+  `DAY COMPLETE` panel.
+
+### Day-1 expectations on `/week` (useful sanity oracle for any fresh block)
+Verdict `Baseline week`; **0 polylines** and caption `A 7-day average needs four weigh-ins`;
+42 sheet cells with 6 answered and 36 `not yet` and **zero misses**; compliance `1 of 1 days logged`
+with `1/1` denominators; lift cards read `First entry` with **no percentage**. e1RM is Epley
+(`w × (1 + reps/30)`), so `6×62.5 → 75.0kg` and `5×110 → 128.3kg`.
+
 ## Mobile viewport
 Chrome cannot be resized below ~532px wide on Linux, so use DevTools device emulation
 (F12 → Ctrl+Shift+M → set 390 x 844) for mobile checks, and read tap-target heights / font sizes
