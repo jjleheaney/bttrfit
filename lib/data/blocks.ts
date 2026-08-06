@@ -435,9 +435,13 @@ export async function updateProfile(patch: {
 }
 
 /**
- * Points a slot at a different lift. The slot keeps its id, so the week 1
- * baseline row is replaced rather than orphaned — a swapped lift must not
- * inherit the previous lift's top set as its own starting point.
+ * Points a slot at a different lift, in one transaction via `swap_sentinel_lift`.
+ *
+ * The slot keeps its id and its week 1 row is rewritten, so the new lift starts
+ * from the set that was typed for it rather than inheriting the old lift's. Done
+ * as two round trips, a failure between them would leave the slot renamed and
+ * still holding the previous lift's baseline — the exact corruption this is
+ * meant to prevent, and invisible once it happens.
  */
 export async function swapSentinelLift(
   sentinelLiftId: string,
@@ -447,19 +451,15 @@ export async function swapSentinelLift(
 ): Promise<void> {
   const { supabase } = await requireUser();
 
-  const { error } = await supabase
-    .from("sentinel_lifts")
-    .update({ lift_key: liftKey, display_name: displayName })
-    .eq("id", sentinelLiftId);
+  const { error } = await supabase.rpc("swap_sentinel_lift", {
+    p_sentinel_lift_id: sentinelLiftId,
+    p_lift_key: liftKey,
+    p_display_name: displayName,
+    p_reps: baseline.reps,
+    p_weight: baseline.weight,
+  });
 
   if (error) throw error;
-
-  const { error: entryError } = await supabase.from("lift_entries").upsert(
-    { sentinel_lift_id: sentinelLiftId, week_number: 1, ...baseline },
-    { onConflict: "sentinel_lift_id,week_number" },
-  );
-
-  if (entryError) throw entryError;
 }
 
 /**

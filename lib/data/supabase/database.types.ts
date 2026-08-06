@@ -221,6 +221,16 @@ export type Database = {
         Args: Record<never, never>;
         Returns: void;
       };
+      swap_sentinel_lift: {
+        Args: {
+          p_sentinel_lift_id: string;
+          p_lift_key: string;
+          p_display_name: string;
+          p_reps: number;
+          p_weight: number;
+        };
+        Returns: void;
+      };
     };
     Enums: {
       unit_preference: UnitPreference;

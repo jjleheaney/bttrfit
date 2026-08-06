@@ -20,20 +20,25 @@ function Error({ children }: { children: React.ReactNode }) {
   return <p className="text-caption text-miss">{children}</p>;
 }
 
-/** A saved confirmation that clears itself, so nothing on the screen goes stale. */
+/**
+ * A save with a confirmation that has to be dismissed on the next edit: "Saved."
+ * sitting above numbers the user has since changed is a lie the screen tells
+ * quietly.
+ */
 function useSaveState() {
   const [state, setState] = useState<{ error?: string; saved?: boolean }>({});
   const [pending, startTransition] = useTransition();
 
-  function run(action: () => Promise<SettingsResult>) {
+  function run(action: () => Promise<SettingsResult>, onSaved?: () => void) {
     setState({});
     startTransition(async () => {
       const result = await action();
       setState(result.ok ? { saved: true } : { error: result.error });
+      if (result.ok) onSaved?.();
     });
   }
 
-  return { ...state, pending, run };
+  return { ...state, pending, run, clear: () => setState({}) };
 }
 
 export function TargetsForm({
@@ -52,7 +57,12 @@ export function TargetsForm({
     proteinTargetG: String(proteinTargetG),
     weeklyDrinksTarget: String(weeklyDrinksTarget),
   });
-  const { error, saved, pending, run } = useSaveState();
+  const { error, saved, pending, run, clear } = useSaveState();
+
+  function edit(patch: Partial<typeof draft>) {
+    clear();
+    setDraft({ ...draft, ...patch });
+  }
 
   return (
     <form
@@ -66,7 +76,7 @@ export function TargetsForm({
           id="starting-weight"
           inputMode="decimal"
           value={draft.startingWeight}
-          onChange={(event) => setDraft({ ...draft, startingWeight: event.target.value })}
+          onChange={(event) => edit({ startingWeight: event.target.value })}
         />
       </Field>
       <Field label="Protein target (g a day)" htmlFor="protein-target">
@@ -74,7 +84,7 @@ export function TargetsForm({
           id="protein-target"
           inputMode="numeric"
           value={draft.proteinTargetG}
-          onChange={(event) => setDraft({ ...draft, proteinTargetG: event.target.value })}
+          onChange={(event) => edit({ proteinTargetG: event.target.value })}
         />
       </Field>
       <Field label="Drinks target (a week)" htmlFor="drinks-target">
@@ -82,7 +92,7 @@ export function TargetsForm({
           id="drinks-target"
           inputMode="numeric"
           value={draft.weeklyDrinksTarget}
-          onChange={(event) => setDraft({ ...draft, weeklyDrinksTarget: event.target.value })}
+          onChange={(event) => edit({ weeklyDrinksTarget: event.target.value })}
         />
       </Field>
 
@@ -120,7 +130,23 @@ export function LiftSwap({
     reps: baseline ? String(baseline.reps) : "",
     weight: baseline ? String(baseline.weight) : "",
   });
-  const { error, saved, pending, run } = useSaveState();
+  const { error, saved, pending, run, clear } = useSaveState();
+
+  /**
+   * Choosing a different lift blanks the numbers rather than carrying the old
+   * lift's across: a bench press top set saved as a deadlift baseline makes the
+   * rest of the block's comparison meaningless, and it would happen by simply
+   * not noticing the boxes were already filled in.
+   */
+  function chooseLift(liftKey: string) {
+    clear();
+    const own = liftKey === lift.liftKey && baseline;
+    setDraft({
+      liftKey,
+      reps: own ? String(baseline.reps) : "",
+      weight: own ? String(baseline.weight) : "",
+    });
+  }
 
   return (
     <div className="flex flex-col gap-2 border-b border-line py-2">
@@ -131,7 +157,7 @@ export function LiftSwap({
             {baseline ? `Baseline ${formatTopSet(baseline, unit)}` : "No baseline logged"}
           </p>
         </div>
-        {decision.allowed && !saved && (
+        {decision.allowed && (
           <Button type="button" variant="ghost" onClick={() => setOpen(!open)}>
             {open ? "Cancel" : "Swap"}
           </Button>
@@ -139,13 +165,15 @@ export function LiftSwap({
       </div>
 
       {!decision.allowed && <p className="text-caption text-text-muted">{decision.reason}</p>}
-      {saved && <p className="text-caption text-text-muted">Swapped.</p>}
+      {saved && !open && <p className="text-caption text-text-muted">Swapped.</p>}
 
-      {open && decision.allowed && !saved && (
+      {open && decision.allowed && (
         <form
           className="flex flex-col gap-3 pt-1"
           action={() => {
-            run(() => swapLift({ sentinelLiftId: lift.id, ...draft }));
+            // Closing on success puts the refreshed name and baseline back in
+            // front of the user, which is the confirmation that matters.
+            run(() => swapLift({ sentinelLiftId: lift.id, ...draft }), () => setOpen(false));
           }}
         >
           <Field label="Lift" htmlFor={`lift-${lift.id}`}>
@@ -153,7 +181,7 @@ export function LiftSwap({
               id={`lift-${lift.id}`}
               className={SELECT_CLASS}
               value={draft.liftKey}
-              onChange={(event) => setDraft({ ...draft, liftKey: event.target.value })}
+              onChange={(event) => chooseLift(event.target.value)}
             >
               {SENTINEL_LIFT_MENU.filter(
                 (option) => option.key === lift.liftKey || !taken.includes(option.key),
@@ -170,7 +198,10 @@ export function LiftSwap({
                 id={`reps-${lift.id}`}
                 inputMode="numeric"
                 value={draft.reps}
-                onChange={(event) => setDraft({ ...draft, reps: event.target.value })}
+                onChange={(event) => {
+                  clear();
+                  setDraft({ ...draft, reps: event.target.value });
+                }}
               />
             </Field>
             <Field label={`Weight (${unit})`} htmlFor={`weight-${lift.id}`}>
@@ -178,7 +209,10 @@ export function LiftSwap({
                 id={`weight-${lift.id}`}
                 inputMode="decimal"
                 value={draft.weight}
-                onChange={(event) => setDraft({ ...draft, weight: event.target.value })}
+                onChange={(event) => {
+                  clear();
+                  setDraft({ ...draft, weight: event.target.value });
+                }}
               />
             </Field>
           </div>
