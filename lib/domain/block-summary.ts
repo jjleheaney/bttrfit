@@ -83,6 +83,12 @@ export type BlockSummary = {
   startingWeight: number;
   /** The average of the last week that has any weigh-ins. */
   latestWeekAverage: number | null;
+  /**
+   * Which week `latestWeekAverage` came from. Not always the last week of the
+   * block: someone who stops weighing in at week 5 still has a closing figure,
+   * and calling it week 8's would misdate their own result.
+   */
+  latestWeekNumber: number | null;
   /** `latestWeekAverage` against the starting weight: the block's headline. */
   weightChange: number | null;
   /** Raw weigh-ins and the trailing mean for every block day up to `today`. */
@@ -263,7 +269,8 @@ export function blockSummary(
   }
 
   const withWeight = weeks.filter((week) => week.started && week.weightAverage !== null);
-  const latestWeekAverage = withWeight.at(-1)?.weightAverage ?? null;
+  const latestWeek = withWeight.at(-1) ?? null;
+  const latestWeekAverage = latestWeek?.weightAverage ?? null;
 
   return {
     weeksElapsed: elapsed,
@@ -271,6 +278,7 @@ export function blockSummary(
     finished: compareDates(today, blockEndDate(block.startDate)) > 0,
     startingWeight: block.startingWeight,
     latestWeekAverage,
+    latestWeekNumber: latestWeek?.weekNumber ?? null,
     weightChange: latestWeekAverage === null ? null : latestWeekAverage - block.startingWeight,
     trend: weightSeries(
       entries,

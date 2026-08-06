@@ -7,8 +7,8 @@ import {
   demoSentinelLifts,
   midWeekOneEntries,
 } from "./fixtures";
-import { addDays } from "./dates";
-import { blockEndDate } from "./weeks";
+import { addDays, compareDates } from "./dates";
+import { WEEKS_PER_BLOCK, blockEndDate, weekRange } from "./weeks";
 
 const AFTER_BLOCK = "2026-03-02";
 const MID_WEEK_ONE = addDays(DEMO_BLOCK_START, 1);
@@ -62,6 +62,7 @@ describe("the finished demo block", () => {
     const summary = complete();
     expect(summary.startingWeight).toBe(95.8);
     expect(summary.latestWeekAverage).toBeCloseTo(93.0, 5);
+    expect(summary.latestWeekNumber).toBe(WEEKS_PER_BLOCK);
     expect(summary.weightChange).toBeCloseTo(-2.8, 5);
   });
 
@@ -114,6 +115,18 @@ describe("the finished demo block", () => {
     expect(complete().weakestMetric?.metric).toBe("steps");
   });
 
+  it("dates the closing weight to the last week weighed in, not to week 8", () => {
+    // Someone who stops weighing in at week 5 still has a closing figure. It is
+    // week 5's, and the review has to be able to say so.
+    const lastWeighIn = weekRange(DEMO_BLOCK_START, 5).endDate;
+    const entries = demoDailyEntries().map((entry) =>
+      compareDates(entry.entryDate, lastWeighIn) > 0 ? { ...entry, weight: null } : entry,
+    );
+    const summary = blockSummary(DEMO_BLOCK, entries, demoSentinelLifts(), AFTER_BLOCK);
+    expect(summary.latestWeekNumber).toBe(5);
+    expect(summary.latestWeekAverage).toBe(summary.weeks[4].weightAverage);
+  });
+
   it("plots every block day once the block is over", () => {
     const trend = complete().trend;
     expect(trend).toHaveLength(56);
@@ -157,6 +170,7 @@ describe("a block in progress", () => {
   it("refuses a weight change until a week has a weigh-in", () => {
     const summary = blockSummary(DEMO_BLOCK, [], demoSentinelLifts(), MID_WEEK_ONE);
     expect(summary.latestWeekAverage).toBeNull();
+    expect(summary.latestWeekNumber).toBeNull();
     expect(summary.weightChange).toBeNull();
     expect(summary.weakestMetric).toBeNull();
     expect(summary.compliance.protein.rate).toBeNull();

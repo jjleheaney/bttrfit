@@ -77,7 +77,11 @@ export default async function BlockReviewPage() {
         <p className="tabular text-caption text-text-muted">
           {summary.latestWeekAverage === null
             ? "No weigh-ins were logged, so the block has no weight result."
-            : `${formatWeight(summary.startingWeight, unit)} to ${formatWeight(summary.latestWeekAverage, unit)} on the final week's average`}
+            : `${formatWeight(summary.startingWeight, unit)} to ${formatWeight(summary.latestWeekAverage, unit)} on week ${summary.latestWeekNumber}'s average${
+                summary.latestWeekNumber === WEEKS_PER_BLOCK
+                  ? ""
+                  : `, the last week you weighed in`
+              }`}
         </p>
         {/* The one sentence the product exists to be able to write. It is only
             written when both halves of the evidence are actually present. */}
