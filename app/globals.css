@@ -15,33 +15,68 @@
   --plate-red: #c8102e;
   --plate-yellow: #f2c200;
 
-  /* Semantic roles, light theme */
+  --black: #0a0a0a;
+
+  /*
+   * Dark is the default theme, so the dark values live on :root and the light
+   * theme is the override. A first paint before next-themes has run therefore
+   * lands on black rather than flashing white.
+   *
+   * Every colour a component can reach is a role, not a hex: retuning a shade is
+   * a one-line change here and nothing in `app/` or `components/` has to know.
+   * `lib/design/tokens.ts` mirrors these values for the things that cannot read a
+   * CSS variable, and `contrast.test.ts` holds both files to WCAG AA.
+   */
+  /* Native controls too: date pickers, scrollbars and select menus follow this. */
+  color-scheme: dark;
+
+  --ground: var(--black);
+  /* Cards, nav and any raised panel: lifted off the page, still near-black. */
+  --surface: #121212;
+  --surface-raised: #1f1f22;
+  /* Inputs sit above the page rather than merging into it. */
+  --field: #1a1a1a;
+  --text: #ffffff;
+  /* Secondary copy, captions and placeholders: 8.6:1 on the ground. */
+  --text-muted: #ababab;
+  --line: #303034;
+  --accent: #5b8dff;
+  --accent-contrast: var(--black);
+  --hit: #22c55e;
+  --miss: #ff6b7d;
+  --attention: var(--plate-yellow);
+  /*
+   * Text drawn *on* a status fill. White on a status colour bright enough to read
+   * as text against black is around 3:1, so the fills take near-black text
+   * instead — which is why no component hardcodes `text-white` any more.
+   */
+  --hit-contrast: #06130c;
+  --miss-contrast: var(--black);
+  --attention-contrast: var(--black);
+}
+
+.light {
+  color-scheme: light;
+
   --ground: var(--steel);
   --surface: var(--chalk);
   --surface-raised: #ffffff;
+  --field: #ffffff;
   --text: var(--ink);
   /* Darker than --slate: #6B7280 on the steel ground is 3.98:1, under AA. */
   --text-muted: #5b6270;
   --line: #d4d8de;
   --accent: var(--plate-blue);
   --accent-contrast: #ffffff;
-  --hit: var(--plate-green);
+  /* Darker than the plate green: #00843D on the steel ground is 3.96:1. */
+  --hit: #00722f;
   --miss: var(--plate-red);
-  --attention: var(--plate-yellow);
-}
-
-.dark {
-  --ground: var(--ink);
-  --surface: #161b22;
-  --surface-raised: #1d232c;
-  --text: var(--chalk);
-  --text-muted: #9aa2ae;
-  --line: #2b323c;
-  --accent: #4c7dff;
-  --accent-contrast: #0e1116;
-  --hit: #16a75b;
-  --miss: #ef4159;
-  --attention: #f2c200;
+  /* Plate yellow cannot reach 3:1 on a light ground, so the light theme darkens
+     it rather than borrowing a colour that already means something else. */
+  --attention: #a37c00;
+  --hit-contrast: #ffffff;
+  --miss-contrast: #ffffff;
+  --attention-contrast: var(--ink);
 }
 
 @theme inline {
@@ -57,14 +92,19 @@
   --color-ground: var(--ground);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+  --color-field: var(--field);
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-contrast: var(--accent-contrast);
   --color-hit: var(--hit);
+  --color-hit-contrast: var(--hit-contrast);
   --color-miss: var(--miss);
+  --color-miss-contrast: var(--miss-contrast);
   --color-attention: var(--attention);
+  --color-attention-contrast: var(--attention-contrast);
+  --color-black: var(--black);
 
   --font-display: var(--font-archivo), system-ui, sans-serif;
   --font-sans: var(--font-inter), system-ui, sans-serif;

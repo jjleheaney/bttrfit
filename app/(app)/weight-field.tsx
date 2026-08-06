@@ -54,7 +54,7 @@ export function WeightField({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-3 py-2 [@media(max-height:720px)]:py-0",
+        "flex items-center justify-between gap-2 rounded-md border bg-field px-3 py-2 [@media(max-height:720px)]:py-0",
         value === null ? "border-dashed border-attention" : "border-line",
       )}
     >
@@ -96,7 +96,7 @@ export function WeightField({
           type="button"
           aria-label="Down 0.1"
           onClick={() => step(-0.1)}
-          className="min-h-tap w-12 rounded-md border border-line bg-surface text-lead"
+          className="min-h-tap w-12 rounded-md border border-line bg-surface-raised text-lead text-text hover:border-accent"
         >
           −
         </button>
@@ -104,7 +104,7 @@ export function WeightField({
           type="button"
           aria-label="Up 0.1"
           onClick={() => step(0.1)}
-          className="min-h-tap w-12 rounded-md border border-line bg-surface text-lead"
+          className="min-h-tap w-12 rounded-md border border-line bg-surface-raised text-lead text-text hover:border-accent"
         >
           +
         </button>

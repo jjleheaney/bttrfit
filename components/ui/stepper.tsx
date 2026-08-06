@@ -23,7 +23,7 @@ export function Stepper({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-md border px-3 py-1.5 [@media(max-height:720px)]:py-0",
+        "flex items-center justify-between gap-3 rounded-md border bg-surface px-3 py-1.5 [@media(max-height:720px)]:py-0",
         value === null ? "border-dashed border-attention" : "border-line",
       )}
     >
@@ -77,7 +77,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="min-h-tap w-12 rounded-md border border-line bg-surface text-lead text-text disabled:opacity-40"
+      className="min-h-tap w-12 rounded-md border border-line bg-surface-raised text-lead text-text hover:border-accent disabled:opacity-50"
     >
       {children}
     </button>

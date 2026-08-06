@@ -37,7 +37,7 @@ function Cell({ cell, row }: { cell: SheetCell; row: string }) {
   const title = `${row}, ${formatDay(cell.date)}: ${cell.label}`;
 
   if (cell.state === "future") {
-    return <Square title={title} className="border border-dotted border-line opacity-60" />;
+    return <Square title={title} className="border border-dotted border-line" />;
   }
 
   if (cell.state === "unanswered") {
