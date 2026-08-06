@@ -217,6 +217,10 @@ export type Database = {
         };
         Returns: Database["public"]["Tables"]["blocks"]["Row"];
       };
+      delete_account: {
+        Args: Record<never, never>;
+        Returns: void;
+      };
     };
     Enums: {
       unit_preference: UnitPreference;

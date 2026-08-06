@@ -1,16 +1,24 @@
 import { signOut } from "@/app/auth/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { getActiveBlock, getProfile } from "@/lib/data/blocks";
-import { formatLongDay, formatWeight } from "@/lib/format";
+import { getBlockContext, getProfile } from "@/lib/data/blocks";
+import { createClient } from "@/lib/data/supabase/server";
+import { formatLongDay } from "@/lib/format";
+import { DeleteAccount, LiftSwap, TargetsForm } from "./settings-forms";
 
 /**
- * Deliberately thin for now: what the block was set up with, the theme, and the
- * way out. Editing targets, swapping lifts, CSV export and account deletion come
- * with the settings phase rather than being half-built here.
+ * Everything about a block that can still be changed, and the two things that
+ * end it: taking your data out, and deleting the account.
  */
 export default async function SettingsPage() {
-  const [profile, block] = await Promise.all([getProfile(), getActiveBlock()]);
+  const supabase = await createClient();
+  const [profile, context, { data: auth }] = await Promise.all([
+    getProfile(),
+    getBlockContext(),
+    supabase.auth.getUser(),
+  ]);
+  const block = context?.block ?? null;
+  const lifts = context?.lifts ?? [];
 
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-4 pb-4">
@@ -29,12 +37,31 @@ export default async function SettingsPage() {
           <dl className="tabular flex flex-col gap-1 text-body">
             <Row label="Started">{formatLongDay(block.startDate)}</Row>
             <Row label="Ends">{formatLongDay(block.endDate)}</Row>
-            <Row label="Starting weight">
-              {formatWeight(block.startingWeight, profile.unitPreference)}
-            </Row>
-            <Row label="Protein target">{block.proteinTargetG}g</Row>
-            <Row label="Drinks target">{block.weeklyDrinksTarget} a week</Row>
           </dl>
+          {/* The start date is missing on purpose: moving it renumbers all 56
+              days underneath entries that are already filed against them. */}
+          <TargetsForm
+            unit={profile.unitPreference}
+            startingWeight={block.startingWeight}
+            proteinTargetG={block.proteinTargetG}
+            weeklyDrinksTarget={block.weeklyDrinksTarget}
+          />
+        </section>
+      )}
+
+      {lifts.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-caption uppercase tracking-wide text-text-muted">Sentinel lifts</h2>
+          <div className="flex flex-col">
+            {lifts.map((lift) => (
+              <LiftSwap
+                key={lift.id}
+                lift={lift}
+                taken={lifts.map((other) => other.liftKey)}
+                unit={profile.unitPreference}
+              />
+            ))}
+          </div>
         </section>
       )}
 
@@ -60,6 +87,13 @@ export default async function SettingsPage() {
           Sign out
         </Button>
       </form>
+
+      {auth.user?.email && (
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h2 className="text-caption uppercase tracking-wide text-text-muted">Danger zone</h2>
+          <DeleteAccount email={auth.user.email} />
+        </section>
+      )}
     </main>
   );
 }
