@@ -107,42 +107,12 @@ A one-line heading at 390px often becomes two lines at 360px, adding ~20px that 
 at the wider size will miss. When a fix is justified by a predicted block height, re-measure that
 block at **both** widths and quote the real number even on a pass.
 
-### The tab bar is `sticky`, so `vOverflow > 0` does not always mean something is hidden
-`nav` is `position: sticky`, so it still occupies its place in flow: document height is `main` +
-`nav`, even though `getBoundingClientRect()` reports the *stuck* position at the bottom of the
-viewport. A page can therefore report overflow while everything still looks visible. Confirm a real
-scroll is possible, then separately state whether anything is actually obscured:
-
-```js
-window.scrollTo(0, 9999);
-console.log('scrolled by', -document.querySelector('main').getBoundingClientRect().top);
-window.scrollTo(0, 0);
-```
-
-A 4px overflow with nothing hidden and a 40px overflow that buries the last line of a panel are very
-different findings — always report the px number *and* the visible consequence.
-
-### Checking a control is really tappable near the tab bar
-If `elementFromPoint` at a control's bottom edge returns something inside `nav`, part of that
-control is not tappable — report it even when every height passes:
-
-```js
-const r = el.getBoundingClientRect();
-console.log(document.elementFromPoint(r.left + r.width / 2, r.bottom - 2));
-```
-
-Two follow-ups:
-- Always finish with a **real click** at that lowest point and assert the resulting state change
-  (e.g. the header date changes). The hit test is the explanation; the click is the proof.
-- Inside an `overflow-x-auto` row, Chrome's horizontal scrollbar intercepts the bottom ~3px of a
-  child in desktop emulation, so `elementFromPoint` there returns the scroll container. That is an
-  emulation artefact, not the tab-bar bug — tell them apart by checking whether the returned element
-  is inside `nav`.
-
-### Text that wraps at 360px blows layout budgets
-A one-line heading at 390px often becomes two lines at 360px, adding ~20px that a px budget computed
-at the wider size will miss. When a fix is justified by a predicted block height, re-measure that
-block at **both** widths and quote the real number even on a pass.
+### `.min-h-tap` changes size across the short-viewport breakpoint
+It is **48px above** `max-height: 720px` and **44px below** it. An expected block height must
+therefore be computed per viewport — the same block is legitimately 66px at 390×844 and 54px at
+360×640. Also, when a PR buys vertical space by cutting padding around a control, assert the block
+height **and** the control's own height: shrinking the tap target produces the same overflow win but
+is a worse bug.
 
 ## Reaching week/day states without waiting real days
 Only ever move `blocks.start_date` via SQL (`end_date` is a generated column and follows). Relative
@@ -153,10 +123,22 @@ to the *browser's* today:
 | `-11` | week 2 day 5 — lift prompt must be ABSENT |
 | `-12` | week 2 day 6 — lift prompt must be PRESENT |
 | `-60` | block finished (56 days past) — tests the retire/next-block path |
+| `-70` | block ended ~2 weeks ago but still `active` — post-block-end week resolution |
+| `+7`  | block has NOT started yet — the other side of the same fallback |
 
 The absent-then-present pair is the discriminating test for the day-6 threshold; testing only day 6
 proves nothing. Week 1 baselines are written at setup, so the prompt never fires in week 1 — you
 must backdate into week 2 to test lift logging at all.
+
+The `-70` / `+7` rows are a pair worth keeping together. `weekNumberFor` returns `null` for **both**
+"before day one" and "after the last day", so any `?? fallback` on it is a bug magnet: the two cases
+want opposite answers (week 1 before the start, week 8 after the end). Whenever you test one, test
+the other in the same run — a sign error in the `compareDates` guard passes one and fails the other,
+and it costs two minutes.
+
+Note a block can be `status = 'active'` while its `end_date` is already in the past; "finished" on
+the Today screen is computed from dates, not from `status`, so you do not need to flip `status` to
+reach the finished state.
 
 To test an out-of-block save: open an early day in the tab, *then* move `start_date` forward so the
 held day falls before the block, then tap a metric in that same tab.
@@ -171,24 +153,33 @@ visit. This is only discriminating when UTC and the override are on **different 
 the persisted `blocks.start_date` / `daily_entries.entry_date`.
 
 ## Verifying writes, and RLS
-The UI is not proof that the right row was written — check with `psql "$SUPABASE_DB_URL"`, but the
-**inherited** `SUPABASE_DB_URL` points at the IPv6-only direct host and fails with
-`Network is unreachable`. Load the pooler URI out of `.env.local` first, without echoing it:
+The UI is not proof that the right row was written — check with `psql "$SUPABASE_DB_URL"`. Try the
+**inherited** env var first: it has worked directly (session pooler,
+`aws-1-…​.pooler.supabase.com` as `postgres.<ref>`, on both `:5432` and `:6543`) since the project
+password was last reset. If it fails, it is likely a stale value — historically it pointed at the
+IPv6-only direct host and failed with `Network is unreachable`. Then load the pooler URI out of
+`.env.local` instead, without echoing it:
 
 ```bash
 cd /home/ubuntu/repos/bttrfit && set -a && . ./.env.local && set +a && psql "$SUPABASE_DB_URL" -Atc "select 1;"
 ```
 
-, but the
-**inherited** `SUPABASE_DB_URL` points at the IPv6-only direct host and fails with
-`Network is unreachable`. Load the pooler URI out of `.env.local` first, without echoing it:
+**If `psql` fails both ways, fall back to PostgREST.** Postgres password auth may fail for *both*
+the inherited URI and the `.env.local` pooler URI (`FATAL: password authentication failed for user
+"postgres"`) while the REST API still works fine. Probe which credential is live before assuming
+you are locked out — the injected `SUPABASE_SERVICE_ROLE_KEY` and the one in `.env.local` are often
+different, and only one may be valid:
 
 ```bash
-cd /home/ubuntu/repos/bttrfit && set -a && . ./.env.local && set +a && psql "$SUPABASE_DB_URL" -Atc "select 1;"
+curl -s -o /dev/null -w '%{http_code}\n' -H "apikey: $KEY" "$URL/rest/v1/blocks?select=id&limit=1"
 ```
 
-Useful
-column names (easy to guess wrong): `daily_entries` has `workout_done`, `protein_hit`, `sleep_hit`,
+Then seed with `@supabase/supabase-js` using the working key, run **from the repo root** so the
+dependency resolves. `seed-week-fixture.mjs` is a worked example (parses `.env.local` itself, never
+prints secrets). Note PostgREST cannot write generated columns such as `blocks.end_date` — set
+`start_date` and let it follow.
+
+Useful column names (easy to guess wrong): `daily_entries` has `workout_done`, `protein_hit`, `sleep_hit`,
 `steps_hit`, `drinks`, `weight`, `notes` (there is no `training_hit`).
 
 The unanswered/No distinction matters: "No" must persist as `false`, a cleared answer as `NULL`.
@@ -198,6 +189,71 @@ from `blocks`, `sentinel_lifts`, `lift_entries`, `daily_entries` — all must re
 an insert into `lift_entries` using the *first* user's `sentinel_lift_id`; it must fail with
 `new row violates row-level security policy`. Run such scripts **from the repo root** so
 `@supabase/supabase-js` resolves (a script in `/tmp` cannot find it).
+
+## Testing the `/week` screen
+Reached by the **Week** tab (middle of the 3-tab bar). `?week=N` is clamped to 1..8 and anything
+out of range — including `0` and `9` — silently falls back to the *current* block week, so a test
+that only checks "page still renders" proves nothing; assert the rendered `h1`.
+
+The forward arrow renders as an inert `<span aria-hidden>` (not a disabled link) once you reach the
+current week, so assert `querySelector('a[aria-label="Next week"]') === null` **and** click it to
+show nothing happens. Same shape for `Previous week` on week 1.
+
+Design one fixture that makes every branch visibly different in a couple of screenshots:
+
+| Want to prove | Fixture |
+|---|---|
+| baseline refusal + chart draws **0** polylines | week 1 with only 3 weigh-ins |
+| trend line **gap** (not interpolation) | a week with <4 weigh-ins between two dense weeks |
+| conclusive verdict | dense week, 2 lifts up |
+| unchanged-lift card prints **no** percentage | repeat an earlier week's reps×weight exactly |
+| verdict refusal that must not fall back on weight | current week, only **1** comparable lift, with a large weight delta |
+| all 4 contact-sheet cell states in one shot | partially-elapsed current week, one metric left `NULL` |
+
+Counting SVG nodes is the discriminating assertion for the chart — an implementation that bridges a
+sparse stretch renders **1** polyline where a correct one renders **2**:
+
+```js
+const s = document.querySelector('figure svg');
+const pts = [...s.querySelectorAll('polyline')].flatMap(p =>
+  p.getAttribute('points').split(' ').map(v => +v.split(',')[0]));
+console.log(s.querySelectorAll('polyline').length, s.querySelectorAll('circle').length,
+  Math.max(...pts), Math.max(...[...s.querySelectorAll('circle')].map(c => +c.getAttribute('cx'))));
+```
+
+The series must be **clipped at today**, so on the *current* week the rightmost polyline vertex and
+the rightmost dot must have the same `x`. A line running past today is the regression to watch for.
+
+Do **not** generalise that to "the line always ends on the last weigh-in". `rollingAverage7` is a
+*trailing* mean, so a date with no weigh-in of its own still gets an average as long as its previous
+7 days hold four weigh-ins. The line therefore legitimately extends past the last weigh-in, up to
+the clip point — it only coincides with the last dot when that dot is today. This bit me: I
+predicted 0 polylines on a week whose only weigh-ins ended the day before, and the app correctly
+rendered 1. When testing a *finished* block, the useful assertion is that nothing is plotted at the
+block-end `x` (`320`), not that the line stops exactly on the last dot. Convert `x` back to a day
+index with `Math.round(x / 320 * (nDates - 1))` and name the date before claiming a failure.
+
+The chart `<svg>` also carries `role="img"`, so it is picked up by `querySelectorAll('[role="img"]')`
+— filter it out when counting the 42 contact-sheet cells (6 rows × 7 days), or you will get 43.
+
+Classify sheet cells by their computed class rather than by eye; the four states are
+`border-dotted border-line` (future), `border-dotted border-attention` (unanswered),
+`border-text` (miss) and `bg-hit` (binary hit), with proportional rows using a `bg-text` inner bar
+whose `style.height` is the fill percentage. Two rules worth asserting explicitly: future days must
+**never** be misses (count them — un-elapsed days × 6 rows), and the proportional weight/drinks bars
+must use foreground ink, **not** the hit green, in both themes:
+
+```js
+getComputedStyle(bar).backgroundColor  // light rgb(14,17,22) / dark rgb(250,250,248)
+getComputedStyle(hit).backgroundColor  // light rgb(0,132,61)  / dark rgb(22,167,91)
+```
+
+Switch themes through the UI (**Settings → Theme → Dark**), not the console — the user watches the
+recording. Capture the light-mode colours *before* switching so you can diff them.
+
+Unlike Today, this screen is **allowed** to scroll vertically, so `vOverflow` is not a failure here.
+What matters is `hOverflow === 0` (the 7-column sheet must fit 360px without its own scroller) and
+that, scrolled fully to the bottom, the last section clears `navTop`.
 
 ## Devin secrets needed
 - `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://<ref>.supabase.co`)
