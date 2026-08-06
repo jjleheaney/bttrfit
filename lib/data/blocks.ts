@@ -5,6 +5,7 @@ import {
   type Block,
   type BlockStatus,
   type DailyEntry,
+  type ExportBlock,
   type IsoDate,
   type SentinelLift,
   type UnitPreference,
@@ -235,6 +236,60 @@ export async function getBlockContext(): Promise<BlockContext | null> {
         .sort((a, b) => a.weekNumber - b.weekNumber),
     })),
   };
+}
+
+/**
+ * Every block the user has ever run, with its days and lifts, oldest first.
+ *
+ * The one read that deliberately ignores the active block: an export that only
+ * covered the current eight weeks would be useless the moment block 2 starts,
+ * and the volume is bounded by 56 rows a block.
+ */
+export async function getAllBlocksForExport(): Promise<ExportBlock[]> {
+  const { supabase, user } = await requireUser();
+
+  const { data, error } = await supabase
+    .from("blocks")
+    .select(
+      `block_number, start_date,
+       daily_entries (entry_date, weight, protein_hit, workout_done, sleep_hit, steps_hit, drinks, notes),
+       sentinel_lifts (slot, lift_key, display_name, lift_entries (week_number, reps, weight))`,
+    )
+    .eq("user_id", user.id)
+    .order("block_number");
+
+  if (error) throw error;
+
+  return (data ?? []).map((block) => ({
+    blockNumber: block.block_number,
+    startDate: block.start_date,
+    entries: (block.daily_entries ?? [])
+      .map((row) => ({
+        entryDate: row.entry_date,
+        weight: row.weight === null ? null : Number(row.weight),
+        proteinHit: row.protein_hit,
+        workoutDone: row.workout_done,
+        sleepHit: row.sleep_hit,
+        stepsHit: row.steps_hit,
+        drinks: row.drinks,
+        notes: row.notes,
+      }))
+      .sort((a, b) => a.entryDate.localeCompare(b.entryDate)),
+    lifts: (block.sentinel_lifts ?? [])
+      .map((lift) => ({
+        slot: lift.slot as 1 | 2 | 3,
+        liftKey: lift.lift_key,
+        displayName: lift.display_name,
+        entries: (lift.lift_entries ?? [])
+          .map((entry) => ({
+            weekNumber: entry.week_number,
+            reps: entry.reps,
+            weight: Number(entry.weight),
+          }))
+          .sort((a, b) => a.weekNumber - b.weekNumber),
+      }))
+      .sort((a, b) => a.slot - b.slot),
+  }));
 }
 
 export type DailyEntryPatch = Partial<Omit<DailyEntry, "entryDate">>;

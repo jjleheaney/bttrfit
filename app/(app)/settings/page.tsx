@@ -43,12 +43,47 @@ export default async function SettingsPage() {
         <ThemeToggle />
       </section>
 
+      <section className="flex flex-col gap-2">
+        <h2 className="text-caption uppercase tracking-wide text-text-muted">Your data</h2>
+        <p className="text-caption text-text-muted">
+          Every block you have run, as a spreadsheet. Unanswered days stay blank rather than
+          counting as a no.
+        </p>
+        <div className="flex gap-2">
+          <ExportLink dataset="daily">Days</ExportLink>
+          <ExportLink dataset="lifts">Lifts</ExportLink>
+        </div>
+      </section>
+
       <form action={signOut} className="mt-auto">
         <Button type="submit" variant="secondary" full>
           Sign out
         </Button>
       </form>
     </main>
+  );
+}
+
+/**
+ * A plain link, not a fetch: `download` lets the browser stream the file
+ * straight to disk, which is the one path that works in an installed PWA on iOS
+ * as well as on desktop.
+ */
+function ExportLink({
+  dataset,
+  children,
+}: {
+  dataset: "daily" | "lifts";
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={`/api/v1/export?dataset=${dataset}`}
+      download
+      className="inline-flex min-h-tap flex-1 items-center justify-center rounded-md border border-line bg-surface px-5 text-body font-medium text-text hover:bg-surface-raised"
+    >
+      {children}
+    </a>
   );
 }
 

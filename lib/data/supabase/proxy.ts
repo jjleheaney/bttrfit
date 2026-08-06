@@ -38,6 +38,12 @@ export async function updateSession(request: NextRequest) {
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   );
 
+  if (!user && pathname.startsWith("/api/")) {
+    // A client asking for JSON or CSV must be told it is signed out, not handed
+    // the login page's HTML with a 200 on it.
+    return Response.json({ error: "Not signed in" }, { status: 401 });
+  }
+
   if (!user && !isPublic) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
