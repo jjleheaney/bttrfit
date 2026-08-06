@@ -118,7 +118,15 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "daily_entries_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       sentinel_lifts: {
         Row: {
@@ -142,7 +150,15 @@ export type Database = {
           lift_key?: string;
           display_name?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "sentinel_lifts_block_id_fkey";
+            columns: ["block_id"];
+            isOneToOne: false;
+            referencedRelation: "blocks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       lift_entries: {
         Row: {
@@ -169,11 +185,39 @@ export type Database = {
           weight?: number;
           logged_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "lift_entries_sentinel_lift_id_fkey";
+            columns: ["sentinel_lift_id"];
+            isOneToOne: false;
+            referencedRelation: "sentinel_lifts";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Functions: {
+      create_block: {
+        Args: {
+          p_first_name: string;
+          p_unit_preference: UnitPreference;
+          p_start_date: string;
+          p_starting_weight: number;
+          p_protein_target_g: number;
+          p_weekly_drinks_target: number;
+          // Each element is { slot, lift_key, display_name, reps, weight }.
+          p_lifts: {
+            slot: number;
+            lift_key: string;
+            display_name: string;
+            reps: number;
+            weight: number;
+          }[];
+        };
+        Returns: Database["public"]["Tables"]["blocks"]["Row"];
+      };
+    };
     Enums: {
       unit_preference: UnitPreference;
       block_status: BlockStatus;
