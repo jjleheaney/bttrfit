@@ -1,6 +1,6 @@
 ---
 name: testing-bttrfit
-description: How to run and test the BTTR Fit Next.js + Supabase app locally (dev server, env pitfalls, creating test users, auth flows).
+description: How to run and test the BTTR Fit Next.js + Supabase app locally (dev server, env pitfalls, creating test users, auth flows, theme/token verification).
 ---
 
 # Testing BTTR Fit locally
@@ -319,12 +319,107 @@ whose `style.height` is the fill percentage. Two rules worth asserting explicitl
 must use foreground ink, **not** the hit green, in both themes:
 
 ```js
-getComputedStyle(bar).backgroundColor  // light rgb(14,17,22) / dark rgb(250,250,248)
-getComputedStyle(hit).backgroundColor  // light rgb(0,132,61)  / dark rgb(22,167,91)
+getComputedStyle(bar).backgroundColor  // must equal var(--text), never var(--hit)
+getComputedStyle(hit).backgroundColor
 ```
+
+Assert against the *current* token values (read them at runtime, see the theming section) rather
+than hardcoded hexes — the palette has already been retuned once and stale expected values in a
+test plan will produce false failures.
 
 Switch themes through the UI (**Settings → Theme → Dark**), not the console — the user watches the
 recording. Capture the light-mode colours *before* switching so you can diff them.
+
+## Testing the theme / design tokens
+
+Dark is the **default and the `:root` set**; `.light` is the override class, and
+`enableSystem={false}` so the OS preference is deliberately ignored. Only **Dark** and **Light**
+are offered (a withdrawn `"system"` value is migrated to `"dark"` on mount).
+
+**Never assert a theme from a screenshot alone.** A dark page looks identical whether the roles are
+wired to the new tokens or to a previous dark palette. Read the tokens at runtime and assert the
+computed `rgb()`:
+
+```js
+const cs = getComputedStyle(document.documentElement);
+Object.fromEntries(['ground','surface','surface-raised','field','text','text-muted','line',
+  'accent','accent-contrast','hit','hit-contrast','miss','miss-contrast','attention']
+  .map(t => [t, cs.getPropertyValue('--' + t).trim()]));
+```
+
+Do the same for the *elements*, scanning for anything whose background luminance is out of set:
+
+```js
+[...document.querySelectorAll('*')].filter(el => {
+  const b = getComputedStyle(el).backgroundColor;
+  const m = b.match(/\d+/g);
+  if (!m || b === 'rgba(0, 0, 0, 0)') return false;
+  const [r,g,bl] = m.map(Number);
+  return (0.2126*r + 0.7152*g + 0.0722*bl) > 80;   // tune per palette
+}).map(el => el.tagName + '.' + el.className);
+```
+
+Run that scan **inverted** after switching to Light (look for elements stuck on a *dark* token) —
+a half-themed app is the realistic failure when dark lives on `:root`.
+
+### Prove the pre-hydration first paint by disabling JavaScript
+The white-flash window before `next-themes` writes a class is a frame you will miss. Disable JS in
+DevTools and hard-reload: the state becomes permanent and inspectable. Correct behaviour is
+**no `light`/`dark` class on `<html>`** while `document.body` already computes to the dark ground.
+If the body is light here, that *is* the flash.
+
+### The built-in 404 does not follow the theme
+There is no `app/not-found.tsx`, so Next's built-in error page applies its own stylesheet
+(`body{color:#000;background:#fff}` with a `@media (prefers-color-scheme:dark)` override). Because
+the app forces dark by **class** and ignores the OS preference, an OS-light visitor gets a **white**
+404 inside an all-dark app. Always visit a bogus path (`/nope-does-not-exist`) as part of any theme
+sweep — it is the route nobody styles. If this is still white, it is a real finding.
+
+### Hover cannot be exercised in this harness
+Chromium here reports `matchMedia('(hover: hover)').matches === false` /
+`(pointer: coarse) === true`, and Tailwind compiles `hover:` utilities inside `@media (hover:hover)`,
+so the rules are inert. Verify the compiled rule exists instead of guessing, and report hover as
+*untested at runtime, statically verified* rather than failed:
+
+```bash
+curl -s http://localhost:3000/_next/static/css/<hash>.css | grep -o 'hover:hover[^}]*}[^}]*}'
+```
+
+Note this is not purely an artefact: a real phone also reports `hover: none`, so these affordances
+only ever reach desktop pointer users.
+
+### Contrast is the point of the status tokens — compute it, don't eyeball it
+The fills carry dedicated `--hit-contrast` / `--miss-contrast` text colours precisely because white
+on green/red failed AA. Compute the ratio in the console (sRGB → relative luminance →
+`(L1+0.05)/(L2+0.05)`) and assert ≥4.5. Also compute what the *old* value would have scored — a
+before/after pair is far stronger evidence than a passing number alone.
+
+For elements rendered with `opacity`, composite against their backdrop before judging: an
+`opacity: 0.3` disabled control on `#0A0A0A` is far weaker than its nominal colour suggests. WCAG
+exempts disabled controls, so report those as an observation, not a violation.
+
+### Charts read from the accent token
+The dark accent is **white** (`#FFFFFF`), not a link blue — a reviewer working from an older PR
+description may misread white chart strokes as a broken `stroke-accent` utility. Consequently the
+rolling-average line and the grey raw dots (`--text-muted` at `opacity: 0.7`) are the one pair worth
+re-checking whenever the accent changes; measure their separation ratio. Lift-chart lines are told
+apart by `stroke-dasharray` (`none` / `6 3` / `1.5 3`), **not** by colour, so all three legitimately
+share one stroke.
+
+### Theme-toggle cases that actually catch bugs
+Asserting "Dark looks selected" passes even when nothing persists. Assert both halves:
+
+| Case | Setup | Expect |
+|---|---|---|
+| fresh visitor on a light phone | clear `localStorage` **and** emulate `prefers-color-scheme: light` | still dark; `storedTheme === null` |
+| withdrawn value migrates | `localStorage.theme = 'system'` before load | `Dark` has `aria-checked="true"` **and** stored value rewritten to `"dark"` |
+| migration is durable | reload again | still `"dark"` (not re-migrated each visit) |
+| persistence | pick Dark, **hard**-reload | class and body colour survive |
+
+### Hydration mismatch on Today is pre-existing, not a theme bug
+`lib/format.ts` formats `en-GB` dates and Node's ICU emits `Thu, 6 Aug` while Chrome emits
+`Thu 6 Aug`, logging a React hydration error. Before blaming a diff for it, check whether the
+changed files contain `Intl.`/`DateTimeFormat`/`toLocaleDateString` at all.
 
 Unlike Today, this screen is **allowed** to scroll vertically, so `vOverflow` is not a failure here.
 What matters is `hOverflow === 0` (the 7-column sheet must fit 360px without its own scroller) and
