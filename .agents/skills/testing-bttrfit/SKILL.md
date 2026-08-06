@@ -1,6 +1,6 @@
 ---
 name: testing-bttrfit
-description: How to run and test the BTTR Fit Next.js + Supabase app locally (dev server, env pitfalls, creating test users, auth flows, theme/token verification, settings/lift-swap, CSV export, PWA/service-worker limits).
+description: How to run and test the BTTR Fit Next.js + Supabase app locally (dev server, env pitfalls, creating test users, auth flows, theme/token verification).
 ---
 
 # Testing BTTR Fit locally
@@ -416,132 +416,14 @@ Asserting "Dark looks selected" passes even when nothing persists. Assert both h
 | migration is durable | reload again | still `"dark"` (not re-migrated each visit) |
 | persistence | pick Dark, **hard**-reload | class and body colour survive |
 
-### The Today date hydration mismatch — fixed, but branch-dependent
-`lib/format.ts` used one combined `Intl` formatter, and Node's ICU emitted `Thu, 6 Aug` while
-Chrome emitted `Thu 6 Aug`, logging a React hydration error. **PR #25 fixed this** by joining two
-separate UTC formatters (weekday + date), which agree across runtimes.
-
-Consequences when testing:
-- Branches that predate #25 still render `Thu, 6 Aug`. That is **expected on those worktrees**, not
-  a regression — check `git log --oneline -- lib/format.ts` before reporting it.
-- The bug was a *server/client disagreement*, so the rendered text looked fine either way. The only
-  real proof is a **clean console after a hard reload** — assert zero entries matching
-  `hydrat|did not match|Text content does not match`, not just the visible string.
-- Turn on **Preserve log** first, then `console.clear()`, then hard-reload; otherwise you cannot
-  tell "no errors" from "console was wiped by the navigation".
-- Beware a false positive: this harness injects `devinid` / `devin-tagname` attributes, which can
-  themselves produce a hydration warning. Diff the reported mismatch and confirm whether any *date
-  string* actually appears in it before blaming the product.
+### Hydration mismatch on Today is pre-existing, not a theme bug
+`lib/format.ts` formats `en-GB` dates and Node's ICU emits `Thu, 6 Aug` while Chrome emits
+`Thu 6 Aug`, logging a React hydration error. Before blaming a diff for it, check whether the
+changed files contain `Intl.`/`DateTimeFormat`/`toLocaleDateString` at all.
 
 Unlike Today, this screen is **allowed** to scroll vertically, so `vOverflow` is not a failure here.
 What matters is `hOverflow === 0` (the 7-column sheet must fit 360px without its own scroller) and
 that, scrolled fully to the bottom, the last section clears `navTop`.
-
-## Service workers do not activate in this harness — the offline test is untestable here
-The SW registers, but DevTools ▸ Application ▸ Service workers sits forever at
-**"#0 trying to install"**, `caches.keys()` stays `[]`, and `navigator.serviceWorker.register()`
-returns a promise that **neither resolves nor rejects**.
-
-Do not report this as a product defect without a control. Load a known-good third-party PWA in the
-same browser and probe it identically:
-
-```js
-// on https://squoosh.app — Google's reference PWA
-navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r =>
-  console.log(r.scope, r.installing?.state, r.waiting?.state, r.active?.state)));
-caches.keys().then(k => console.log(JSON.stringify(k)));
-```
-
-If Squoosh shows the same `installing=null waiting=null active=null` + empty caches, it is the
-harness, and anything SW-dependent (offline fallback, precaching, `skipWaiting`) must be reported
-**untested**, not failed.
-
-What you *can* still verify without an active worker:
-- `/offline` returns 200 `text/html` and renders as a correctly themed app page (the fallback
-  target is sound even if the fallback path cannot fire).
-- `/manifest.webmanifest` returns `application/manifest+json`, parses in DevTools ▸ Application ▸
-  Manifest, and every icon URL returns 200. `form_factor`/screenshot warnings are optional and
-  non-blocking — they are not installability errors.
-- `/sw.js` is served with a JS content type and its `install` shell list is fetchable.
-
-## Testing Settings: targets, sentinel-lift swap, delete account
-
-### The swap gate is per-lift — prove it with one screenshot
-`canSwapSentinelLift` allows a swap only when the lift has **no entries with `weekNumber > 1`**.
-Seed a week-2 row for *one* slot and leave its peers baseline-only, then screenshot all three
-rows together: the gated lift's **Swap button is replaced by** the refusal sentence while its peers
-keep theirs. One frame proves the gate is per-lift rather than a global toggle.
-
-```sql
-insert into lift_entries (sentinel_lift_id, week_number, reps, weight)
-select s.id, 2, 5, 102.5 from sentinel_lifts s
-join blocks b on b.id = s.block_id join auth.users u on u.id = b.user_id
-where u.email = '<test user>' and s.slot = 2;
-```
-
-The refusal names the weeks logged (`week 2`, or `weeks 4 to 5` for a range) — assert the exact
-string, since "some explanation appeared" would pass on a stubbed message.
-
-### Swap assertions that cannot be faked
-- **Type a baseline unlike the old one** (e.g. bench 5×70 → overhead press 8×45). An inert or
-  inherited write then fails loudly instead of coincidentally matching.
-- Assert the slot and its week-1 entry in **one read**, plus the row count — the pre-atomic
-  two-step could leave a renamed slot carrying the old lift's top set, or duplicate the entry:
-
-```sql
-select s.slot, s.lift_key, le.week_number, le.reps, le.weight,
-       count(*) over (partition by s.id) as entry_rows
-from sentinel_lifts s left join lift_entries le on le.sentinel_lift_id = s.id
-join blocks b on b.id = s.block_id join auth.users u on u.id = b.user_id
-where u.email = '<test user>' order by s.slot, le.week_number;
-```
-
-- **Taken lifts** are filtered from the `<select>`; after swapping slot 1 away from bench, bench
-  must *reappear* in the menu on the next open. Check both directions.
-- A successful swap **closes the form**; reopen it without reloading to prove a second swap works
-  and that the confirmation cleared.
-
-### Delete account — use a throwaway you created through the UI
-Never a fixture you still need. Assert the wrong-email refusal *and* that the account still exists,
-then after the real deletion assert **all** tables, not just `auth.users`:
-
-```sql
-select 'auth.users', count(*) from auth.users where email = '<throwaway>'
-union all select 'blocks', count(*) from blocks where user_id = '<uid>'
-union all select 'daily_entries', count(*) from daily_entries where user_id = '<uid>'
-union all select 'sentinel_lifts', count(*) from sentinel_lifts
-  where block_id in (select id from blocks where user_id = '<uid>');
-```
-
-Also navigate back to `/settings` afterwards — it must bounce to `/login?next=%2Fsettings`. Landing
-on `/login` once only proves a redirect happened, not that the session died.
-
-**Known gap (may still be present):** the clear-on-edit behaviour is wired into the targets and
-swap forms but **not** the delete-account confirmation, so a stale
-`That is not the email this account uses.` can remain on screen after you correct the address.
-
-## Testing the CSV export
-
-### "Contains all blocks" needs a block that owns exclusive rows
-`daily_entries` carries an explicit `block_id`, and fixture blocks often **overlap in date range**
-while all the entries belong to the newer one. An export showing a single block is then correct,
-not a bug. Check before reporting:
-
-```sql
-select min(entry_date), max(entry_date), count(*) from daily_entries where user_id = '<uid>';
-```
-
-If the older block owns nothing, seed one row against it explicitly (`block_id` = the old block),
-re-export, confirm both blocks appear, then delete the row. The **Lifts** CSV usually spans blocks
-unaided, so it is the cheaper multi-block check.
-
-### Blank cells and formula defusing
-- A NULL boolean must export as an **empty field** (`yes,,,yes`), never `no`. Pick a day whose
-  `workout_done`/`sleep_hit` are NULL and assert the literal `,,`.
-- A note beginning with `= + - @` tab or CR is prefixed with a literal **tab** inside quotes:
-  `"\t=1+1"`. Type it through the Today notes UI, re-download, and inspect the raw bytes
-  (`cat -A` if unsure a tab is really there) — opening in a viewer that trims whitespace hides it.
-- Downloads land in `~/Downloads`; a repeat download becomes `name (1).csv`, so glob carefully.
 
 ## Devin secrets needed
 - `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://<ref>.supabase.co`)
