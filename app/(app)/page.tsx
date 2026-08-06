@@ -36,11 +36,11 @@ export default async function TodayPage() {
     return (
       <Notice title={`Block ${block.blockNumber} is finished`}>
         <p>
-          All {WEEKS_PER_BLOCK} weeks are logged. The block review lands in a later phase; until
-          then, start the next block to keep checking in.
+          All {WEEKS_PER_BLOCK} weeks are logged. Read the review before starting the next block:
+          it is the argument for whether the last eight weeks worked.
         </p>
-        <Link href="/start" className="underline">
-          Start block {block.blockNumber + 1}
+        <Link href="/block/review" className="underline">
+          Read the block review
         </Link>
       </Notice>
     );

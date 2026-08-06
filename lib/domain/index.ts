@@ -13,5 +13,6 @@ export * from "./verdict";
 export * from "./focus";
 export * from "./streaks";
 export * from "./week-summary";
+export * from "./block-summary";
 export * from "./contact-sheet";
 export * from "./setup";
