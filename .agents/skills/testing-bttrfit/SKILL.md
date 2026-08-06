@@ -107,6 +107,43 @@ A one-line heading at 390px often becomes two lines at 360px, adding ~20px that 
 at the wider size will miss. When a fix is justified by a predicted block height, re-measure that
 block at **both** widths and quote the real number even on a pass.
 
+### The tab bar is `sticky`, so `vOverflow > 0` does not always mean something is hidden
+`nav` is `position: sticky`, so it still occupies its place in flow: document height is `main` +
+`nav`, even though `getBoundingClientRect()` reports the *stuck* position at the bottom of the
+viewport. A page can therefore report overflow while everything still looks visible. Confirm a real
+scroll is possible, then separately state whether anything is actually obscured:
+
+```js
+window.scrollTo(0, 9999);
+console.log('scrolled by', -document.querySelector('main').getBoundingClientRect().top);
+window.scrollTo(0, 0);
+```
+
+A 4px overflow with nothing hidden and a 40px overflow that buries the last line of a panel are very
+different findings — always report the px number *and* the visible consequence.
+
+### Checking a control is really tappable near the tab bar
+If `elementFromPoint` at a control's bottom edge returns something inside `nav`, part of that
+control is not tappable — report it even when every height passes:
+
+```js
+const r = el.getBoundingClientRect();
+console.log(document.elementFromPoint(r.left + r.width / 2, r.bottom - 2));
+```
+
+Two follow-ups:
+- Always finish with a **real click** at that lowest point and assert the resulting state change
+  (e.g. the header date changes). The hit test is the explanation; the click is the proof.
+- Inside an `overflow-x-auto` row, Chrome's horizontal scrollbar intercepts the bottom ~3px of a
+  child in desktop emulation, so `elementFromPoint` there returns the scroll container. That is an
+  emulation artefact, not the tab-bar bug — tell them apart by checking whether the returned element
+  is inside `nav`.
+
+### Text that wraps at 360px blows layout budgets
+A one-line heading at 390px often becomes two lines at 360px, adding ~20px that a px budget computed
+at the wider size will miss. When a fix is justified by a predicted block height, re-measure that
+block at **both** widths and quote the real number even on a pass.
+
 ## Reaching week/day states without waiting real days
 Only ever move `blocks.start_date` via SQL (`end_date` is a generated column and follows). Relative
 to the *browser's* today:
@@ -135,6 +172,14 @@ the persisted `blocks.start_date` / `daily_entries.entry_date`.
 
 ## Verifying writes, and RLS
 The UI is not proof that the right row was written — check with `psql "$SUPABASE_DB_URL"`, but the
+**inherited** `SUPABASE_DB_URL` points at the IPv6-only direct host and fails with
+`Network is unreachable`. Load the pooler URI out of `.env.local` first, without echoing it:
+
+```bash
+cd /home/ubuntu/repos/bttrfit && set -a && . ./.env.local && set +a && psql "$SUPABASE_DB_URL" -Atc "select 1;"
+```
+
+, but the
 **inherited** `SUPABASE_DB_URL` points at the IPv6-only direct host and fails with
 `Network is unreachable`. Load the pooler URI out of `.env.local` first, without echoing it:
 
