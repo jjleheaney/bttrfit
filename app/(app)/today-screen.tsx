@@ -29,6 +29,8 @@ import { WeightField } from "./weight-field";
 const LIFT_PROMPT_FROM_DAY_OF_WEEK = 6;
 /** Weight, four binary habits, drinks. */
 const METRICS_PER_DAY = 6;
+/** How long the saved acknowledgement stays before the countdown returns. */
+const SAVED_VISIBLE_MS = 1500;
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -110,8 +112,8 @@ export function TodayScreen({
   // The day on screen is never offered as a day to go back and fill in: the chip
   // would be a no-op and it would overstate how much is missing behind you.
   const missing = useMemo(
-    () => missingDates(entryList, block.startDate, today).filter((day) => day !== today),
-    [entryList, block.startDate, today],
+    () => missingDates(entryList, block.startDate, today).filter((day) => day !== date),
+    [entryList, block.startDate, today, date],
   );
 
   /**
@@ -141,6 +143,12 @@ export function TodayScreen({
       const result = await saveDay(date, patch);
       if (result.ok) {
         setState("saved");
+        // Back to the countdown shortly: a permanent "Saved" hides how much of the
+        // day is still unanswered, which is the more useful thing to show.
+        window.setTimeout(
+          () => setState((current) => (current === "saved" ? "idle" : current)),
+          SAVED_VISIBLE_MS,
+        );
         return;
       }
       setEntries((current) => ({
@@ -152,11 +160,21 @@ export function TodayScreen({
     });
   }
 
+  /**
+   * One nudge at a time, in order of urgency. Stacking the lift prompt on top of
+   * the backfill prompt pushed the day's own result off a short screen, and two
+   * competing asks on a ten-second check-in is one too many anyway.
+   */
+  const nudge = showLiftPrompt ? "lifts" : backdatePrompt && missing.length > 0 ? "backdate" : null;
+
   const canGoBack = compareDates(addDays(date, -1), block.startDate) >= 0;
   const canGoForward = compareDates(date, today) < 0;
 
   return (
-    <main className="flex flex-1 flex-col gap-2 px-4 pt-3 pb-2">
+    // The whole check-in has to fit a short phone without scrolling, so on a
+    // 640px-tall viewport the rows give up padding rather than the screen
+    // gaining a scrollbar. Tap targets stay at 44px, the accessible floor.
+    <main className="flex flex-1 flex-col gap-2 px-4 pt-3 pb-2 [@media(max-height:720px)]:gap-1 [@media(max-height:720px)]:pt-1">
       <header className="flex items-center justify-between">
         <button
           type="button"
@@ -168,7 +186,7 @@ export function TodayScreen({
           ‹
         </button>
         <div className="text-center">
-          <h1 className="font-display text-title uppercase tracking-tight">
+          <h1 className="font-display text-title uppercase tracking-tight [@media(max-height:720px)]:text-lead">
             {date === today ? "Today" : formatDay(date)}
           </h1>
           <p className="tabular text-caption text-text-muted">
@@ -252,7 +270,7 @@ export function TodayScreen({
           </p>
         )}
 
-        {showLiftPrompt && (
+        {nudge === "lifts" && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2">
             <Link href={`/lifts?week=${todayWeek}`} className="text-caption underline">
               Log week {todayWeek} lifts
@@ -267,11 +285,12 @@ export function TodayScreen({
           </div>
         )}
 
-        {backdatePrompt && missing.length > 0 && (
-          <div className="rounded-md border border-line bg-surface px-3 py-2">
+        {nudge === "backdate" && (
+          <div className="rounded-md border border-line bg-surface px-3 py-2 [@media(max-height:720px)]:py-1">
             <p className="text-caption text-text-muted">
-              {missing.length} day{missing.length === 1 ? "" : "s"} in the last week are not
-              logged. Fill one in:
+              {missing.length === 1
+                ? "1 day in the last week is not logged. Fill it in:"
+                : `${missing.length} days in the last week are not logged. Fill one in:`}
             </p>
             <div className="mt-1 flex flex-wrap gap-2">
               {missing.map((missingDate) => (
@@ -291,7 +310,7 @@ export function TodayScreen({
         {complete ? (
           <section
             aria-live="polite"
-            className="resolve-in rounded-md border border-hit bg-surface px-3 py-2"
+            className="resolve-in rounded-md border border-hit bg-surface px-3 py-2 [@media(max-height:720px)]:py-1"
           >
             <div className="flex items-baseline justify-between">
               <p className="text-caption uppercase tracking-wide text-text-muted">
@@ -300,16 +319,20 @@ export function TodayScreen({
               <p className="tabular font-display text-display leading-none">
                 {streak}
                 <span className="ml-1 text-caption font-sans tracking-normal text-text-muted">
-                  day streak
+                  {streak === 1 ? " day streak" : " days streak"}
                 </span>
               </p>
             </div>
             <p className="tabular mt-1 text-caption text-text-muted">
-              Week {weekNumber} so far · {compliance.daysLogged}{" "}
-              {compliance.daysLogged === 1 ? "day" : "days"} logged · protein{" "}
-              {formatRate(compliance.protein.rate)} · sleep {formatRate(compliance.sleep.rate)} ·
-              steps {formatRate(compliance.steps.rate)} · {compliance.workoutsCompleted} sessions ·{" "}
-              {compliance.totalDrinks}/{compliance.weeklyDrinksTarget} drinks
+              {[
+                `Week ${weekNumber} so far`,
+                `${compliance.daysLogged} ${compliance.daysLogged === 1 ? "day" : "days"} logged`,
+                `protein ${formatRate(compliance.protein.rate)}`,
+                `sleep ${formatRate(compliance.sleep.rate)}`,
+                `steps ${formatRate(compliance.steps.rate)}`,
+                `${compliance.workoutsCompleted} ${compliance.workoutsCompleted === 1 ? "session" : "sessions"}`,
+                `${compliance.totalDrinks}/${compliance.weeklyDrinksTarget} drinks`,
+              ].join(" · ")}
             </p>
           </section>
         ) : (

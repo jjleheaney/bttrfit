@@ -115,6 +115,17 @@
 }
 
 /*
+ * On a short phone the check-in must still fit without scrolling, so tap targets
+ * drop to 44px — the accessible floor — rather than the screen growing taller.
+ * Unlayered on purpose: it has to win against the utility that sets 3rem.
+ */
+@media (max-height: 720px) {
+  .min-h-tap {
+    min-height: 2.75rem;
+  }
+}
+
+/*
  * The app's one piece of motion: the day resolving into its completed state, and
  * the lift statuses landing after a save. Everything else is instant on purpose.
  */

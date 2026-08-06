@@ -54,7 +54,7 @@ export function WeightField({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-3 py-2",
+        "flex items-center justify-between gap-2 rounded-md border px-3 py-2 [@media(max-height:720px)]:py-0",
         value === null ? "border-dashed border-attention" : "border-line",
       )}
     >
