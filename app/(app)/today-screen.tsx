@@ -276,7 +276,7 @@ export function TodayScreen({
         )}
 
         {nudge === "lifts" && (
-          <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2">
+          <div className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface px-3 py-2 [@media(max-height:720px)]:py-1">
             <Link href={`/lifts?week=${todayWeek}`} className="text-caption underline">
               Log week {todayWeek} lifts
             </Link>
