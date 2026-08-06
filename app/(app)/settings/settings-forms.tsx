@@ -233,7 +233,7 @@ export function LiftSwap({
 export function DeleteAccount({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const [confirmation, setConfirmation] = useState("");
-  const { error, pending, run } = useSaveState();
+  const { error, pending, run, clear } = useSaveState();
 
   if (!open) {
     return (
@@ -260,7 +260,13 @@ export function DeleteAccount({ email }: { email: string }) {
         autoComplete="off"
         placeholder={email}
         value={confirmation}
-        onChange={(event) => setConfirmation(event.target.value)}
+        onChange={(event) => {
+          // "That is not the email this account uses" sitting above the button
+          // while the correct address is in the box is the wrong signal to give
+          // anyone about to press it.
+          clear();
+          setConfirmation(event.target.value);
+        }}
       />
       {error && <Error>{error}</Error>}
       <div className="flex gap-2">
