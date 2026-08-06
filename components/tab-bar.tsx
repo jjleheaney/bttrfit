@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * Today and Settings only for now. Week and Block arrive with the insight layer;
- * a tab that leads to an empty screen teaches the user not to press tabs.
+ * Block arrives with the eight-week view; a tab that leads to an empty screen
+ * teaches the user not to press tabs.
  */
 const TABS = [
   { href: "/", label: "Today" },
+  { href: "/week", label: "Week" },
   { href: "/settings", label: "Settings" },
 ] as const;
 
