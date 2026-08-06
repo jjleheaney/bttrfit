@@ -389,6 +389,92 @@ export async function saveLiftEntries(
   if (error) throw error;
 }
 
+export type BlockTargets = {
+  startingWeight: number;
+  proteinTargetG: number;
+  weeklyDrinksTarget: number;
+};
+
+/**
+ * Retargets a running block. Starting weight is editable because a typo at
+ * setup otherwise poisons every verdict the block will ever produce; the start
+ * date is not, because moving it renumbers all 56 days under existing entries.
+ */
+export async function updateBlockTargets(blockId: string, targets: BlockTargets): Promise<void> {
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from("blocks")
+    .update({
+      starting_weight: targets.startingWeight,
+      protein_target_g: targets.proteinTargetG,
+      weekly_drinks_target: targets.weeklyDrinksTarget,
+    })
+    .eq("id", blockId)
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+}
+
+export async function updateProfile(patch: {
+  firstName?: string;
+  unitPreference?: UnitPreference;
+}): Promise<void> {
+  const { supabase, user } = await requireUser();
+
+  const columns: Record<string, string> = {};
+  if (patch.firstName !== undefined) columns.first_name = patch.firstName;
+  if (patch.unitPreference !== undefined) columns.unit_preference = patch.unitPreference;
+  if (Object.keys(columns).length === 0) return;
+
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ id: user.id, ...columns }, { onConflict: "id" });
+
+  if (error) throw error;
+}
+
+/**
+ * Points a slot at a different lift, in one transaction via `swap_sentinel_lift`.
+ *
+ * The slot keeps its id and its week 1 row is rewritten, so the new lift starts
+ * from the set that was typed for it rather than inheriting the old lift's. Done
+ * as two round trips, a failure between them would leave the slot renamed and
+ * still holding the previous lift's baseline — the exact corruption this is
+ * meant to prevent, and invisible once it happens.
+ */
+export async function swapSentinelLift(
+  sentinelLiftId: string,
+  liftKey: string,
+  displayName: string,
+  baseline: { reps: number; weight: number },
+): Promise<void> {
+  const { supabase } = await requireUser();
+
+  const { error } = await supabase.rpc("swap_sentinel_lift", {
+    p_sentinel_lift_id: sentinelLiftId,
+    p_lift_key: liftKey,
+    p_display_name: displayName,
+    p_reps: baseline.reps,
+    p_weight: baseline.weight,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Deletes the account and everything hanging off it.
+ *
+ * `auth.users` is unreachable from the browser at any privilege, so this goes
+ * through the `delete_account` function, which takes no arguments and can only
+ * ever delete its own caller. Every other table cascades from that row.
+ */
+export async function deleteAccount(): Promise<void> {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("delete_account");
+  if (error) throw error;
+}
+
 /** True once the block's 56 days are behind the user. */
 export function blockIsOver(block: BlockRecord, today: IsoDate): boolean {
   return today > blockEndDate(block.startDate);

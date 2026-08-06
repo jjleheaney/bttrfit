@@ -17,3 +17,4 @@ export * from "./block-summary";
 export * from "./contact-sheet";
 export * from "./setup";
 export * from "./export";
+export * from "./settings";
