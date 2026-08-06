@@ -36,7 +36,7 @@ export default async function BlockReviewPage() {
         </h1>
         <p className="text-body text-text-muted">
           {summary.weeksElapsed === 0
-            ? "Block 1 has not started yet."
+            ? `Block ${block.blockNumber} has not started yet.`
             : `You are on week ${summary.weeksElapsed} of ${WEEKS_PER_BLOCK}. Judging a block before it is over is how people quit one that was working.`}
         </p>
         <Link href="/block" className="underline">
