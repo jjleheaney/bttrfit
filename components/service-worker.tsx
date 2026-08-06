@@ -9,8 +9,17 @@ import { useEffect } from "react";
  */
 export function ServiceWorker() {
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV !== "production") {
+      // Skipping registration is not enough: a worker installed by an earlier
+      // `npm start` on this origin stays active and keeps answering `next dev`
+      // with that build's assets.
+      void navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => registrations.map((registration) => registration.unregister()));
+      return;
+    }
 
     void navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" });
   }, []);

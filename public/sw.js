@@ -25,8 +25,12 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
+    // Refetch the shell rather than trusting the copy an older worker left: the
+    // cache name is fixed, so nothing else would ever replace it.
     caches
-      .keys()
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL))
+      .then(() => caches.keys())
       .then((keys) =>
         Promise.all(
           keys
@@ -40,7 +44,12 @@ self.addEventListener("activate", (event) => {
 
 /** Build output is content-hashed, so a hit is always the right version. */
 function isImmutableAsset(url) {
-  return url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/");
+  return url.pathname.startsWith("/_next/static/");
+}
+
+/** The icons keep their filenames when the mark is redrawn, so a hit can be stale. */
+function isRevalidatedAsset(url) {
+  return url.pathname.startsWith("/icons/");
 }
 
 self.addEventListener("fetch", (event) => {
@@ -70,6 +79,24 @@ self.addEventListener("fetch", (event) => {
         const response = await fetch(request);
         if (response.ok) cache.put(request, response.clone());
         return response;
+      }),
+    );
+    return;
+  }
+
+  if (isRevalidatedAsset(url)) {
+    // Stale while revalidate: the old mark renders instantly, and a redrawn one
+    // replaces it on the next load rather than never.
+    event.respondWith(
+      caches.open(ASSET_CACHE).then(async (cache) => {
+        const hit = await cache.match(request);
+        const network = fetch(request)
+          .then((response) => {
+            if (response.ok) cache.put(request, response.clone());
+            return response;
+          })
+          .catch(() => hit ?? Response.error());
+        return hit ?? network;
       }),
     );
   }
