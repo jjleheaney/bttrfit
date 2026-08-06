@@ -4,13 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-/**
- * Block arrives with the eight-week view; a tab that leads to an empty screen
- * teaches the user not to press tabs.
- */
 const TABS = [
   { href: "/", label: "Today" },
   { href: "/week", label: "Week" },
+  { href: "/block", label: "Block" },
   { href: "/settings", label: "Settings" },
 ] as const;
 
@@ -24,7 +21,11 @@ export function TabBar() {
     >
       <ul className="mx-auto flex max-w-md">
         {TABS.map((tab) => {
-          const active = pathname === tab.href;
+          // The review lives under /block, and reading it should not un-highlight
+          // the tab the user pressed to get there.
+          const active =
+            pathname === tab.href ||
+            (tab.href !== "/" && pathname.startsWith(`${tab.href}/`));
           return (
             <li key={tab.href} className="flex-1">
               <Link
