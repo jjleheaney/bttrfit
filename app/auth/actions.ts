@@ -119,7 +119,7 @@ export async function signUp(
     password,
     options: {
       data: { first_name: firstName },
-      emailRedirectTo: await originUrl("/auth/confirm?next=/"),
+      emailRedirectTo: await originUrl("/auth/confirm?next=/start"),
     },
   });
 
@@ -132,7 +132,10 @@ export async function signUp(
   }
 
   revalidatePath("/", "layout");
-  redirect("/");
+  // Straight to the block setup rather than via "/": a brand new account has no
+  // block, so Today would only bounce here, and that second hop renders an empty
+  // app shell for a frame first.
+  redirect("/start");
 }
 
 export async function signOut() {

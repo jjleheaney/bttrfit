@@ -231,7 +231,7 @@ function WeekArrow({
   // rather than leading to an empty screen.
   if (week < 1 || week > max) {
     return (
-      <span aria-hidden className="min-h-tap w-tap leading-[3rem] text-center text-text-muted opacity-30">
+      <span aria-hidden className="min-h-tap w-tap leading-[3rem] text-center text-text-muted opacity-50">
         {children}
       </span>
     );

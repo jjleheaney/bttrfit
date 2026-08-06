@@ -186,7 +186,7 @@ export function TodayScreen({
           aria-label="Previous day"
           disabled={!canGoBack}
           onClick={() => setDate(addDays(date, -1))}
-          className="min-h-tap w-10 rounded-md text-lead text-text-muted disabled:opacity-30"
+          className="min-h-tap w-10 rounded-md text-lead text-text-muted disabled:opacity-50"
         >
           ‹
         </button>
@@ -204,7 +204,7 @@ export function TodayScreen({
           aria-label="Next day"
           disabled={!canGoForward}
           onClick={() => setDate(addDays(date, 1))}
-          className="min-h-tap w-10 rounded-md text-lead text-text-muted disabled:opacity-30"
+          className="min-h-tap w-10 rounded-md text-lead text-text-muted disabled:opacity-50"
         >
           ›
         </button>

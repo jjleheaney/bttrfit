@@ -8,26 +8,38 @@ function asUtcDate(date: IsoDate): Date {
   return new Date(`${date}T12:00:00Z`);
 }
 
-const dayLabel = new Intl.DateTimeFormat("en-GB", {
-  weekday: "short",
+/**
+ * The weekday is formatted apart from the date rather than in one pattern.
+ *
+ * Asking for all three at once lets ICU choose the separator, and it disagrees
+ * with itself across versions — Node renders "Thu, 6 Aug" where the browser
+ * renders "Thu 6 Aug", which React reports as a hydration mismatch on a screen
+ * that shows the date at the top of every visit. Joining two formatters keeps
+ * the server and the browser byte-identical.
+ */
+const weekdayShort = new Intl.DateTimeFormat("en-GB", { weekday: "short", timeZone: "UTC" });
+const weekdayLong = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" });
+
+const dayMonthShort = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   timeZone: "UTC",
 });
 
-const longDayLabel = new Intl.DateTimeFormat("en-GB", {
-  weekday: "long",
+const dayMonthLong = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "long",
   timeZone: "UTC",
 });
 
 export function formatDay(date: IsoDate): string {
-  return dayLabel.format(asUtcDate(date));
+  const value = asUtcDate(date);
+  return `${weekdayShort.format(value)} ${dayMonthShort.format(value)}`;
 }
 
 export function formatLongDay(date: IsoDate): string {
-  return longDayLabel.format(asUtcDate(date));
+  const value = asUtcDate(date);
+  return `${weekdayLong.format(value)} ${dayMonthLong.format(value)}`;
 }
 
 export function formatWeight(weight: number, unit: UnitPreference): string {
