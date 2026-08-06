@@ -35,7 +35,8 @@ export const themes = {
     text: "#FFFFFF",
     textMuted: "#ABABAB",
     line: "#303034",
-    accent: "#5B8DFF",
+    /** White on black: the accent is the brightest thing on screen, not a link blue. */
+    accent: "#FFFFFF",
     accentContrast: plate.black,
     hit: "#22C55E",
     hitContrast: "#06130C",

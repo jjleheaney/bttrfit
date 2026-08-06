@@ -40,7 +40,9 @@
   /* Secondary copy, captions and placeholders: 8.6:1 on the ground. */
   --text-muted: #ababab;
   --line: #303034;
-  --accent: #5b8dff;
+  /* White, not a blue: on black the accent is the brightest thing on screen, and
+     a filled button reads as a slab of chalk rather than a web link. */
+  --accent: #ffffff;
   --accent-contrast: var(--black);
   --hit: #22c55e;
   --miss: #ff6b7d;
