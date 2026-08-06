@@ -109,10 +109,14 @@ export function TodayScreen({
     !liftsLoggedForWeek.includes(todayWeek);
 
   const backdatePrompt = shouldPromptBackdate(entryList, block.startDate, today);
-  // The day on screen is never offered as a day to go back and fill in: the chip
-  // would be a no-op and it would overstate how much is missing behind you.
+  // Only days that are behind today and not already on screen: today itself is
+  // not something to go back and fill in, and a chip for the displayed day would
+  // be a no-op. Either one would also overstate how much is missing.
   const missing = useMemo(
-    () => missingDates(entryList, block.startDate, today).filter((day) => day !== date),
+    () =>
+      missingDates(entryList, block.startDate, today).filter(
+        (day) => day !== date && day !== today,
+      ),
     [entryList, block.startDate, today, date],
   );
 
