@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 
 /**
@@ -26,6 +26,15 @@ function useHydrated() {
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const hydrated = useHydrated();
+  const offered = OPTIONS.some((option) => option.value === theme);
+
+  // Anyone who chose "System" before it was withdrawn still has it stored, and it
+  // now resolves to neither option: the control would render with nothing
+  // selected until they tapped it. Move them to the theme they are already
+  // looking at, once.
+  useEffect(() => {
+    if (hydrated && !offered) setTheme("dark");
+  }, [hydrated, offered, setTheme]);
 
   return (
     <div
@@ -34,7 +43,7 @@ export function ThemeToggle() {
       className="inline-flex rounded-md border border-line bg-surface p-1"
     >
       {OPTIONS.map((option) => {
-        const selected = hydrated && theme === option.value;
+        const selected = hydrated && (offered ? theme === option.value : option.value === "dark");
         return (
           <button
             key={option.value}
