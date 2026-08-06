@@ -19,7 +19,7 @@ export function YesNo({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 rounded-md border px-3 py-1.5",
+        "flex items-center justify-between gap-3 rounded-md border px-3 py-1.5 [@media(max-height:720px)]:py-0",
         value === null ? "border-dashed border-attention" : "border-line",
       )}
       role="group"
