@@ -3,7 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseEnv } from "./env";
 import type { Database } from "./database.types";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
+// `/offline` is the service worker's fallback page: it renders no user data, and
+// redirecting it to /login would mean caching a redirect instead of the shell.
+const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/offline"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
