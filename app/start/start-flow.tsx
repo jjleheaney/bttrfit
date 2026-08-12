@@ -156,6 +156,14 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
   }
 
   function submit() {
+    // The last step's own answers are checked here rather than on the way out of
+    // it, because there is no way out of it: every other step is validated by
+    // `next()`, which the final step does not render.
+    const problem = validate(step);
+    if (problem) {
+      setError(problem);
+      return;
+    }
     startTransition(async () => {
       const result = await startBlock({
         firstName: form.firstName,
