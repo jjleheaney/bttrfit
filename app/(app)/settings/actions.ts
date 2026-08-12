@@ -6,21 +6,27 @@ import {
   MAX_WEEKLY_DRINKS_TARGET,
   SENTINEL_LIFT_MENU,
   canSwapSentinelLift,
+  isIsoDate,
   liftDisplayName,
   parseDecimal,
   parseInteger,
   parseWeight,
+  planStartDateMove,
 } from "@/lib/domain";
 import {
   deleteAccount,
   getActiveBlock,
   getBlockContext,
+  getOtherBlockRanges,
   getProfile,
   swapSentinelLift,
+  updateBlockStartDate,
   updateBlockTargets,
   updateProfile,
 } from "@/lib/data/blocks";
 import { createClient } from "@/lib/data/supabase/server";
+import { currentDate } from "@/lib/data/today";
+import { formatLongDay } from "@/lib/format";
 
 export type SettingsResult = { ok: true } | { ok: false; error: string };
 
@@ -60,6 +66,38 @@ export async function saveTargets(input: {
       proteinTargetG: protein.value,
       weeklyDrinksTarget: drinks.value,
     });
+  } catch {
+    return { ok: false, error: "Could not save. Try again." };
+  }
+
+  refresh();
+  return { ok: true };
+}
+
+/**
+ * Moves the block's start date, which moves the origin every other number in the
+ * app is measured from.
+ *
+ * The rule lives in `lib/domain/start-date.ts`; this is where it is enforced.
+ * Today comes from the user's own zone rather than the server's, because a
+ * refusal that names "today" has to mean the day the user is living in.
+ */
+export async function saveStartDate(startDate: string): Promise<SettingsResult> {
+  const [context, today] = await Promise.all([getBlockContext(), currentDate()]);
+  if (!context) return { ok: false, error: "You have no active block." };
+  if (!isIsoDate(startDate)) return { ok: false, error: "Pick a start date." };
+
+  const decision = planStartDateMove({
+    newStartDate: startDate,
+    today,
+    loggedDates: context.entries.map((entry) => entry.entryDate),
+    otherBlocks: await getOtherBlockRanges(context.block.id),
+    formatDate: formatLongDay,
+  });
+  if (!decision.allowed) return { ok: false, error: decision.reason };
+
+  try {
+    await updateBlockStartDate(context.block.id, decision.startDate);
   } catch {
     return { ok: false, error: "Could not save. Try again." };
   }

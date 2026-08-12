@@ -7,6 +7,7 @@ import {
   type DailyEntry,
   type ExportBlock,
   type IsoDate,
+  type OtherBlockRange,
   type SentinelLift,
   type UnitPreference,
 } from "@/lib/domain";
@@ -397,8 +398,7 @@ export type BlockTargets = {
 
 /**
  * Retargets a running block. Starting weight is editable because a typo at
- * setup otherwise poisons every verdict the block will ever produce; the start
- * date is not, because moving it renumbers all 56 days under existing entries.
+ * setup otherwise poisons every verdict the block will ever produce.
  */
 export async function updateBlockTargets(blockId: string, targets: BlockTargets): Promise<void> {
   const { supabase, user } = await requireUser();
@@ -414,6 +414,46 @@ export async function updateBlockTargets(blockId: string, targets: BlockTargets)
     .eq("user_id", user.id);
 
   if (error) throw error;
+}
+
+/**
+ * Re-dates a running block. `end_date` is generated from `start_date`, so it
+ * follows on its own and must not be written.
+ *
+ * Which days the block covers is decided in `lib/domain/start-date.ts`; this
+ * only writes the date, still scoped to the caller's own row.
+ */
+export async function updateBlockStartDate(blockId: string, startDate: IsoDate): Promise<void> {
+  const { supabase, user } = await requireUser();
+
+  const { error } = await supabase
+    .from("blocks")
+    .update({ start_date: startDate })
+    .eq("id", blockId)
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+}
+
+/**
+ * The date ranges of the user's other blocks, so a block being re-dated does not
+ * grow over days another one already owns — `daily_entries` are unique per user
+ * per day, so an overlap makes those days unrecordable for one of the two.
+ */
+export async function getOtherBlockRanges(blockId: string): Promise<OtherBlockRange[]> {
+  const { supabase, user } = await requireUser();
+  const { data, error } = await supabase
+    .from("blocks")
+    .select("block_number, start_date, end_date")
+    .eq("user_id", user.id)
+    .neq("id", blockId);
+
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    blockNumber: row.block_number,
+    startDate: row.start_date,
+    endDate: row.end_date,
+  }));
 }
 
 export async function updateProfile(patch: {
