@@ -74,7 +74,7 @@ Wait for the dashboard to show **Verified** (usually minutes; up to 48h). Then
 
 ## 3. Supabase Auth → SMTP settings
 
-Project `gkzsbewtiefhtjwoqtsr` → **Authentication → Emails → SMTP Settings** → enable
+Project `fcaflckubqcotpymussk` → **Authentication → Emails → SMTP Settings** → enable
 **Custom SMTP**:
 
 | Field | Value |
