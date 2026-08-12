@@ -381,7 +381,12 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
         {step > 0 && (
           <button
             type="button"
-            onClick={() => setStep(step - 1)}
+            onClick={() => {
+              // The refusal belonged to the step being left. Carried backwards it
+              // accuses a screen that has nothing wrong with it.
+              setError(null);
+              setStep(step - 1);
+            }}
             className="min-h-tap text-caption text-text-muted underline"
           >
             Back
