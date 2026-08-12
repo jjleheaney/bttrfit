@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import {
   DEFAULT_WEEKLY_DRINKS_TARGET,
+  MAX_WEEKLY_DRINKS_TARGET,
   PROTEIN_G_PER_KG,
   SENTINEL_LIFT_MENU,
   SENTINEL_LIFT_SLOTS,
-  nextMonday,
+  WEEKLY_DRINKS_OPTIONS,
+  availableSentinelLifts,
   parseDecimal,
   parseInteger,
   parseWeight,
@@ -16,7 +18,6 @@ import {
 } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatLongDay } from "@/lib/format";
 import { startBlock } from "./actions";
 
 export type StartPrefill = {
@@ -38,15 +39,29 @@ type Form = {
   liftKeys: string[];
   liftReps: string[];
   liftWeights: string[];
-  startDate: IsoDate;
 };
 
-const STEP_COUNT = 8;
+const STEP_COUNT = 7;
+
+/**
+ * A block started before the cap existed can carry a target above it, and an
+ * unselectable prefill would leave the step looking unanswered.
+ */
+function withinDrinksCap(prefilled: string): string {
+  const previous = Number(prefilled);
+  if (!prefilled || !Number.isFinite(previous)) return String(DEFAULT_WEEKLY_DRINKS_TARGET);
+  return String(Math.min(Math.max(Math.round(previous), 0), MAX_WEEKLY_DRINKS_TARGET));
+}
 
 /**
  * One question per screen, in the order the answers depend on each other: the
  * protein suggestion needs the weight, and the top sets need the lifts. Every
  * step is prefilled from the last block, so a second block is mostly confirming.
+ *
+ * The block starts today. It used to ask, defaulting to next Monday, which
+ * bought a tidy calendar at the price of up to six days of an app that does
+ * nothing — the surest way to lose someone is to make them wait after they have
+ * already decided.
  */
 export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: IsoDate }) {
   const [step, setStep] = useState(0);
@@ -55,11 +70,10 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
     unitPreference: prefill.unitPreference,
     startingWeight: prefill.startingWeight,
     proteinTargetG: prefill.proteinTargetG,
-    weeklyDrinksTarget: prefill.weeklyDrinksTarget || String(DEFAULT_WEEKLY_DRINKS_TARGET),
+    weeklyDrinksTarget: withinDrinksCap(prefill.weeklyDrinksTarget),
     liftKeys: [0, 1, 2].map((slot) => prefill.liftKeys[slot] ?? ""),
     liftReps: ["", "", ""],
     liftWeights: ["", "", ""],
-    startDate: nextMonday(today),
   });
   const [proteinEdited, setProteinEdited] = useState(prefill.proteinTargetG !== "");
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +115,7 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
     if (current === 4) {
       const drinks = parseInteger(form.weeklyDrinksTarget, {
         min: 0,
-        max: 50,
+        max: MAX_WEEKLY_DRINKS_TARGET,
         label: "Drinks target",
       });
       if ("error" in drinks) return drinks.error;
@@ -146,7 +160,7 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
       const result = await startBlock({
         firstName: form.firstName,
         unitPreference: form.unitPreference,
-        startDate: form.startDate,
+        startDate: today,
         startingWeight: form.startingWeight,
         proteinTargetG: form.proteinTargetG,
         weeklyDrinksTarget: form.weeklyDrinksTarget,
@@ -258,16 +272,21 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
         {step === 4 && (
           <Question
             title="Weekly drinks target"
-            hint="Not zero unless you mean it. Counted and reviewed weekly is usually enough."
+            hint="Pick a number you will actually hold to for eight weeks. This is not about giving anything up — a target you quietly break in week two tells you less than an honest four."
           >
-            <Input
-              autoFocus
-              inputMode="numeric"
-              name="weeklyDrinksTarget"
-              value={form.weeklyDrinksTarget}
-              onChange={(event) => set("weeklyDrinksTarget", event.target.value)}
-              className="tabular text-hero"
-            />
+            <div className="flex gap-2">
+              {WEEKLY_DRINKS_OPTIONS.map((option) => (
+                <Button
+                  key={option}
+                  type="button"
+                  variant={form.weeklyDrinksTarget === String(option) ? "primary" : "secondary"}
+                  full
+                  onClick={() => set("weeklyDrinksTarget", String(option))}
+                >
+                  <span className="tabular">{option}</span>
+                </Button>
+              ))}
+            </div>
           </Question>
         )}
 
@@ -286,7 +305,7 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
                     className="min-h-tap rounded-md border border-line bg-field px-3 text-body text-text"
                   >
                     <option value="">Choose a lift</option>
-                    {SENTINEL_LIFT_MENU.map((lift) => (
+                    {availableSentinelLifts(form.liftKeys, index).map((lift) => (
                       <option key={lift.key} value={lift.key}>
                         {lift.displayName}
                       </option>
@@ -334,23 +353,6 @@ export function StartFlow({ prefill, today }: { prefill: StartPrefill; today: Is
           </Question>
         )}
 
-        {step === 7 && (
-          <Question title="When does the block start?" hint="Eight weeks from the day you pick.">
-            <div className="flex flex-col gap-3">
-              {[nextMonday(today), today].map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={form.startDate === option ? "primary" : "secondary"}
-                  full
-                  onClick={() => set("startDate", option)}
-                >
-                  {option === today ? "Today" : "Next Monday"} · {formatLongDay(option)}
-                </Button>
-              ))}
-            </div>
-          </Question>
-        )}
       </div>
 
       <div className="flex flex-col gap-3">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SENTINEL_LIFT_MENU,
+  availableSentinelLifts,
   compareLiftWeek,
   compareLiftsForWeek,
   epley1RM,
@@ -20,6 +21,35 @@ describe("sentinel lift menu", () => {
   it("falls back to the raw key when a lift is not on the menu", () => {
     expect(liftDisplayName("back_squat")).toBe("Back squat");
     expect(liftDisplayName("zercher_carry")).toBe("zercher_carry");
+  });
+});
+
+describe("availableSentinelLifts", () => {
+  it("hides what the other slots hold but keeps the slot's own choice", () => {
+    const chosen = ["bench_press", "back_squat", "row"];
+    const keys = availableSentinelLifts(chosen, 1).map((lift) => lift.key);
+
+    expect(keys).toContain("back_squat");
+    expect(keys).not.toContain("bench_press");
+    expect(keys).not.toContain("row");
+  });
+
+  it("offers the whole menu while nothing is chosen", () => {
+    expect(availableSentinelLifts(["", "", ""], 0)).toHaveLength(SENTINEL_LIFT_MENU.length);
+  });
+
+  it("drops both of the other slots' lifts, not just the most recent", () => {
+    const menu = SENTINEL_LIFT_MENU.map((lift) => lift.key);
+    const chosen = ["", menu[0], menu[1]];
+
+    expect(availableSentinelLifts(chosen, 0)).toHaveLength(SENTINEL_LIFT_MENU.length - 2);
+  });
+
+  it("does not treat the empty slots as a taken lift", () => {
+    const keys = availableSentinelLifts(["deadlift", "", ""], 1).map((lift) => lift.key);
+
+    expect(keys).not.toContain("deadlift");
+    expect(keys).toHaveLength(SENTINEL_LIFT_MENU.length - 1);
   });
 });
 

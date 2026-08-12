@@ -22,6 +22,26 @@ export function liftDisplayName(key: string): string {
 }
 
 export const SENTINEL_LIFT_SLOTS = 3;
+
+/**
+ * The menu minus the lifts the other slots have already taken.
+ *
+ * Three slots holding the same lift is three copies of one measurement, so the
+ * block would report a strength reference for a third of the body and call it
+ * the whole picture. Removing the option is kinder than validating it after the
+ * fact: nobody has to be told they made a mistake they could not see coming.
+ *
+ * `slot` keeps its own current choice on the list, so re-opening a menu does
+ * not blank the answer already given.
+ */
+export function availableSentinelLifts(
+  chosen: readonly string[],
+  slot: number,
+): typeof SENTINEL_LIFT_MENU[number][] {
+  const taken = chosen.filter((key, index) => index !== slot && key !== "");
+  return SENTINEL_LIFT_MENU.filter((lift) => !taken.includes(lift.key));
+}
+
 /** Either side of this counts as a real change rather than day-to-day variance. */
 export const LIFT_STATUS_THRESHOLD = 0.01;
 

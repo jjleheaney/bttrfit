@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import {
+  MAX_WEEKLY_DRINKS_TARGET,
   SENTINEL_LIFT_MENU,
+  WEEKLY_DRINKS_OPTIONS,
   canSwapSentinelLift,
   formatTopSet,
   liftEntryForWeek,
@@ -52,10 +54,11 @@ export function TargetsForm({
   proteinTargetG: number;
   weeklyDrinksTarget: number;
 }) {
+  const overCap = weeklyDrinksTarget > MAX_WEEKLY_DRINKS_TARGET;
   const [draft, setDraft] = useState({
     startingWeight: String(startingWeight),
     proteinTargetG: String(proteinTargetG),
-    weeklyDrinksTarget: String(weeklyDrinksTarget),
+    weeklyDrinksTarget: String(overCap ? MAX_WEEKLY_DRINKS_TARGET : weeklyDrinksTarget),
   });
   const { error, saved, pending, run, clear } = useSaveState();
 
@@ -88,12 +91,24 @@ export function TargetsForm({
         />
       </Field>
       <Field label="Drinks target (a week)" htmlFor="drinks-target">
-        <Input
+        <select
           id="drinks-target"
-          inputMode="numeric"
+          className={SELECT_CLASS}
           value={draft.weeklyDrinksTarget}
           onChange={(event) => edit({ weeklyDrinksTarget: event.target.value })}
-        />
+        >
+          {WEEKLY_DRINKS_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+        {overCap && (
+          <p className="text-caption text-text-muted">
+            This block was set to {weeklyDrinksTarget} a week, from before the limit of{" "}
+            {MAX_WEEKLY_DRINKS_TARGET}. Saving will bring it down.
+          </p>
+        )}
       </Field>
 
       {error && <Error>{error}</Error>}

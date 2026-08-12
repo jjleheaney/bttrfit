@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_WEEKLY_DRINKS_TARGET,
+  MAX_WEEKLY_DRINKS_TARGET,
+  WEEKLY_DRINKS_OPTIONS,
   fromKilograms,
-  nextMonday,
   parseDecimal,
   parseInteger,
   parseWeight,
@@ -28,16 +30,29 @@ describe("suggestedProteinTarget", () => {
   });
 });
 
-describe("nextMonday", () => {
-  it("is always in the future, and a week away from a Monday", () => {
-    expect(nextMonday("2026-01-06")).toBe("2026-01-12"); // Tuesday
-    expect(nextMonday("2026-01-11")).toBe("2026-01-12"); // Sunday
-    expect(nextMonday("2026-01-05")).toBe("2026-01-12"); // Monday: not today
+describe("the weekly drinks ceiling", () => {
+  it("offers every whole number up to the cap and nothing beyond it", () => {
+    expect(WEEKLY_DRINKS_OPTIONS).toEqual([0, 1, 2, 3, 4]);
+    expect(WEEKLY_DRINKS_OPTIONS.at(-1)).toBe(MAX_WEEKLY_DRINKS_TARGET);
   });
 
-  it("crosses a month and a year end", () => {
-    expect(nextMonday("2026-01-30")).toBe("2026-02-02");
-    expect(nextMonday("2026-12-30")).toBe("2027-01-04");
+  it("keeps the default inside the cap", () => {
+    expect(DEFAULT_WEEKLY_DRINKS_TARGET).toBeLessThanOrEqual(MAX_WEEKLY_DRINKS_TARGET);
+  });
+
+  it("refuses a target above the cap, naming the ceiling", () => {
+    const parsed = parseInteger("5", {
+      min: 0,
+      max: MAX_WEEKLY_DRINKS_TARGET,
+      label: "Drinks target",
+    });
+    expect(parsed).toEqual({ error: "Drinks target must be between 0 and 4." });
+  });
+
+  it("still allows zero, because the cap is a ceiling and not a quota", () => {
+    expect(
+      parseInteger("0", { min: 0, max: MAX_WEEKLY_DRINKS_TARGET, label: "Drinks target" }),
+    ).toEqual({ value: 0 });
   });
 });
 
