@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import {
+  MAX_WEEKLY_DRINKS_TARGET,
   SENTINEL_LIFT_MENU,
   canSwapSentinelLift,
   liftDisplayName,
@@ -46,7 +47,11 @@ export async function saveTargets(input: {
   });
   if ("error" in protein) return { ok: false, error: protein.error };
 
-  const drinks = parseInteger(input.weeklyDrinksTarget, { min: 0, max: 50, label: "Drinks target" });
+  const drinks = parseInteger(input.weeklyDrinksTarget, {
+    min: 0,
+    max: MAX_WEEKLY_DRINKS_TARGET,
+    label: "Drinks target",
+  });
   if ("error" in drinks) return { ok: false, error: drinks.error };
 
   try {

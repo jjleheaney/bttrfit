@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import {
+  MAX_WEEKLY_DRINKS_TARGET,
   SENTINEL_LIFT_MENU,
   SENTINEL_LIFT_SLOTS,
   daysBetween,
@@ -16,10 +17,10 @@ import { completeExpiredBlocks, createBlock, getActiveBlock } from "@/lib/data/b
 import { currentDate } from "@/lib/data/today";
 
 /**
- * The flow only offers today or next Monday. The window is wider than that so a
- * timezone disagreement never rejects a legitimate setup, but a Server Function
- * is a public POST endpoint: without a bound, a block dated to 1970 or 2140
- * would drive every week and day calculation from there.
+ * The flow always sends today. The window stays wider than that so a timezone
+ * disagreement never rejects a legitimate setup, but a Server Function is a
+ * public POST endpoint: without a bound, a block dated to 1970 or 2140 would
+ * drive every week and day calculation from there.
  */
 const EARLIEST_START_DAYS_BEFORE_TODAY = 7;
 const LATEST_START_DAYS_AFTER_TODAY = 14;
@@ -71,7 +72,11 @@ export async function startBlock(input: StartBlockInput): Promise<StartBlockResu
   });
   if ("error" in protein) return { ok: false, error: protein.error };
 
-  const drinks = parseInteger(input.weeklyDrinksTarget, { min: 0, max: 50, label: "Drinks target" });
+  const drinks = parseInteger(input.weeklyDrinksTarget, {
+    min: 0,
+    max: MAX_WEEKLY_DRINKS_TARGET,
+    label: "Drinks target",
+  });
   if ("error" in drinks) return { ok: false, error: drinks.error };
 
   if (input.lifts.length !== SENTINEL_LIFT_SLOTS) {

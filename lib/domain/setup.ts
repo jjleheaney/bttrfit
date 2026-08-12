@@ -1,10 +1,24 @@
-import { addDays, weekdayNumber } from "./dates";
-import type { IsoDate, UnitPreference } from "./types";
+import type { UnitPreference } from "./types";
 
 /** 1.8g of protein per kg of bodyweight. Offered, not imposed. */
 export const PROTEIN_G_PER_KG = 1.8;
 export const KG_PER_LB = 0.45359237;
 export const DEFAULT_WEEKLY_DRINKS_TARGET = 3;
+
+/**
+ * Four drinks a week, and no way to ask for more.
+ *
+ * Alcohol is the one input here that works against every other one at once —
+ * it suppresses protein synthesis, wrecks the sleep the training is recovered
+ * on, and arrives with food nobody counts. A target of twelve is not a target,
+ * it is a note of what already happens, and a target of zero is the one people
+ * abandon in week two and then stop opening the app rather than admit to. The
+ * ceiling exists so the number stays a decision instead of a description.
+ */
+export const MAX_WEEKLY_DRINKS_TARGET = 4;
+
+/** Every allowed answer, in the order they are offered. */
+export const WEEKLY_DRINKS_OPTIONS = [0, 1, 2, 3, 4] as const;
 
 export function toKilograms(weight: number, unit: UnitPreference): number {
   return unit === "kg" ? weight : weight * KG_PER_LB;
@@ -21,20 +35,6 @@ export function fromKilograms(kilograms: number, unit: UnitPreference): number {
 export function suggestedProteinTarget(weight: number, unit: UnitPreference): number {
   const grams = toKilograms(weight, unit) * PROTEIN_G_PER_KG;
   return Math.round(grams / 5) * 5;
-}
-
-/**
- * Blocks default to the next Monday, which is when people believe they will
- * start. Starting today stays one tap away, because the person who wants to
- * start now should not be told to wait.
- */
-export function nextMonday(today: IsoDate): IsoDate {
-  const weekday = weekdayNumber(today);
-  return addDays(today, 8 - weekday);
-}
-
-export function startDateOptions(today: IsoDate): { today: IsoDate; nextMonday: IsoDate } {
-  return { today, nextMonday: nextMonday(today) };
 }
 
 export type ParsedNumber = { value: number } | { error: string };
