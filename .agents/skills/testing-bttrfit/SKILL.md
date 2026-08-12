@@ -595,6 +595,7 @@ deliberately blank. The wizard is 7 steps with the top sets last; there is no st
 the block always starts today.
 
 To test atomicity through the UI: walk **two tabs** to step 7, submit in tab A then immediately in
+tab B. The loser must show `You already have an active block.` (from `app/start/actions.ts`) and the
 server must end with exactly two blocks, block 1 `completed`, block 2 `block_number = 2` `active`
 with exactly 3 `sentinel_lifts` and 3 week-1 `lift_entries`. A silent second block, or a block with
 no lifts, is the failure to hunt for.
