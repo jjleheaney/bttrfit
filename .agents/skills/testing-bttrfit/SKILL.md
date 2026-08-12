@@ -257,6 +257,24 @@ prints secrets). Note PostgREST cannot write generated columns such as `blocks.e
 Useful column names (easy to guess wrong): `daily_entries` has `workout_done`, `protein_hit`, `sleep_hit`,
 `steps_hit`, `drinks`, `weight`, `notes` (there is no `training_hit`).
 
+### `SUPABASE_DB_URL` may not be a Postgres URI at all — plan for supabase-js
+Seen in Aug 2026: the injected `SUPABASE_DB_URL` held the **https project URL**, so every `psql`
+invocation is dead on arrival and there is no pooler URI in `.env.local` either. Do not burn time on
+it — go straight to `@supabase/supabase-js` with the service-role key parsed out of `.env.local`,
+run from the repo root. Ownership columns for a per-user row sweep (these are easy to get wrong):
+
+| table | owner column |
+|---|---|
+| `profiles` | **`id`** (not `user_id`) |
+| `blocks`, `daily_entries` | `user_id` |
+| `sentinel_lifts` | via `block_id` |
+| `lift_entries` | via `sentinel_lift_id` |
+
+A per-uid count only proves that uid is clean. Pair it with a **global orphan sweep** — select every
+row and check its owner is still in `auth.admin.listUsers()` — which is what actually catches a
+broken cascade after any bulk account deletion. Verified clean after a full production
+signup → `/start` → check-in → delete round trip.
+
 The unanswered/No distinction matters: "No" must persist as `false`, a cleared answer as `NULL`.
 
 For RLS, sign a second user in with the **anon/publishable** key (not the service role) and select
