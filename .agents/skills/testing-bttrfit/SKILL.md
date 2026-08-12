@@ -561,6 +561,63 @@ unaided, so it is the cheaper multi-block check.
   (`cat -A` if unsure a tab is really there) — opening in a viewer that trims whitespace hides it.
 - Downloads land in `~/Downloads`; a repeat download becomes `name (1).csv`, so glob carefully.
 
+## Testing the eight-week review and starting the next block
+
+### Reaching a finished block, and the boundary that matters
+"Finished" is computed from dates, not `status`, in three places that disagree if one regresses:
+`/` shows `Block N is finished`, `/block` shows `The block is over. Read the review and start
+block N+1`, and `/block/review` renders only when `summary.finished`. The discriminating pair is
+**exactly day 56** (block not yet over: review must refuse with `The review lands when week 8
+closes`, `/block` must show `day 56 of 56` and **no** review link) versus **day 57** (all three
+switch over). Test both in one run; testing only the finished side proves nothing.
+
+There is no app-provided "today offset" — `currentDate()` comes from the browser tz cookie and the
+system date. Moving only `blocks.start_date` re-maps every existing entry's week and destroys a
+seeded weekly-average fixture. To advance a day while preserving the fixture, shift
+`blocks.start_date` **and every `daily_entries.entry_date`** back by the same number of days
+(shift the oldest rows first so the `unique(user_id, entry_date)` index never collides).
+
+### Pre-compute the review's numbers before you look at the screen
+The review's headline sentence is chosen from `weightChange` vs `WEIGHT_DELTA_THRESHOLD = 0.2` and
+how many sentinel lifts `held or climbed` on first→last e1RM. With weight down and 3/3 lifts up it
+must read exactly:
+`Bodyweight down and every sentinel lift held or climbed. That is body recomposition, without a DEXA scan.`
+Also derive `recompingWeeks of judgedWeeks` by hand from `compareLiftWeek` semantics — it compares
+against the most recent **earlier logged** week, not the immediately preceding one, so a skipped
+lift week does not create an unjudged week. A fixture with a deliberate weight *rise* week is worth
+having: that week must read `Off track`, never a recomp label.
+
+### Block 2 prefill and the one-active-block guard
+`/start` for a returning user prefills name, unit, `getLatestRecordedWeight()` (block 1's **last
+recorded weight**, not the last week average), the previous protein/drinks targets and the same
+three lifts in the same slots, and the header reads `Step n of 8 · Block 2`. Top sets are
+deliberately blank. The wizard is 8 steps with the start date last.
+
+To test atomicity through the UI: walk **two tabs** to step 8, submit in tab A then immediately in
+tab B. The loser must show `You already have an active block.` (from `app/start/actions.ts`) and the
+server must end with exactly two blocks, block 1 `completed`, block 2 `block_number = 2` `active`
+with exactly 3 `sentinel_lifts` and 3 week-1 `lift_entries`. A silent second block, or a block with
+no lifts, is the failure to hunt for.
+
+### After block 2 exists, block 1 is data-intact but UI-unreachable
+Every screen reads the **active** block, so `/block`, `/week` and `/block/review` all show block 2
+and there is no in-app route back to block 1's review. Report that as a product observation, and
+prove block 1 survived server-side (day count, lift entries, unchanged `block_number`/dates) plus
+through the **Days** CSV in Settings, which still carries block 1's rows.
+
+### Shared Supabase project: fixtures can vanish under you
+This project is shared with other sessions/environments. A seeded throwaway user was deleted
+mid-run by something outside the session; the browser silently bounced to `/login` and the block
+was gone. Defences:
+- Re-assert the block/user still exists at the top of every server-side check, so a disappearance
+  is distinguishable from a product bug.
+- Keep the seed reproducible (create user via `admin.createUser`, run the wizard, then the seed
+  script) so a rebuild costs minutes.
+- `supabase.auth.admin.generateLink({type:'magiclink'})` on a missing email will **create** an empty
+  user — do not use it as an existence check. Recovering a lost session is easiest via
+  `admin.updateUserById(uid, { password })` and the `/login` → *"Use a password instead"* form
+  (admin-generated magic-link `token_hash` values were rejected as `link_expired` here).
+
 ## Devin secrets needed
 - `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://<ref>.supabase.co`)
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` (publishable key `sb_publishable_…`)
