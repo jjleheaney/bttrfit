@@ -1,10 +1,11 @@
 import { signOut } from "@/app/auth/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { startDateWindow } from "@/lib/domain";
+import { isBlockComplete, startDateWindow } from "@/lib/domain";
 import { getBlockContext, getProfile } from "@/lib/data/blocks";
 import { createClient } from "@/lib/data/supabase/server";
 import { currentDate } from "@/lib/data/today";
+import { formatLongDay } from "@/lib/format";
 import { DeleteAccount, LiftSwap, StartDateForm, TargetsForm } from "./settings-forms";
 
 /**
@@ -22,6 +23,20 @@ export default async function SettingsPage() {
   const block = context?.block ?? null;
   const lifts = context?.lifts ?? [];
 
+  /**
+   * A block stays `active` until the next one is started, so its eight weeks can
+   * already be behind the user here. Moving the start date of a block that is
+   * over is not a correction, it is a revival — and every date would be refused
+   * anyway — so those dates are shown rather than offered.
+   */
+  const movableWindow =
+    block && !isBlockComplete(block.startDate, today)
+      ? startDateWindow({
+          today,
+          loggedDates: (context?.entries ?? []).map((entry) => entry.entryDate),
+        })
+      : null;
+
   return (
     <main className="flex flex-1 flex-col gap-6 px-5 pt-4 pb-4">
       <header>
@@ -36,13 +51,19 @@ export default async function SettingsPage() {
           <h2 className="text-caption uppercase tracking-wide text-text-muted">
             Block {block.blockNumber}
           </h2>
-          <StartDateForm
-            startDate={block.startDate}
-            {...startDateWindow({
-              today,
-              loggedDates: (context?.entries ?? []).map((entry) => entry.entryDate),
-            })}
-          />
+          {movableWindow ? (
+            <StartDateForm startDate={block.startDate} {...movableWindow} />
+          ) : (
+            <>
+              <dl className="tabular flex flex-col gap-1 text-body">
+                <Row label="Started">{formatLongDay(block.startDate)}</Row>
+                <Row label="Ends">{formatLongDay(block.endDate)}</Row>
+              </dl>
+              <p className="text-caption text-text-muted">
+                These dates are fixed now. The next block is where a different start date belongs.
+              </p>
+            </>
+          )}
           <TargetsForm
             unit={profile.unitPreference}
             startingWeight={block.startingWeight}
@@ -121,6 +142,15 @@ function ExportLink({
     >
       {children}
     </a>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-line py-1">
+      <dt className="text-caption text-text-muted">{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }
 
