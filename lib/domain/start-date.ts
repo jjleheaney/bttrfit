@@ -52,14 +52,23 @@ export type StartDateMoveInput = {
   formatDate?: (date: IsoDate) => string;
 };
 
-/** Earliest and latest start date a block may currently be moved to. */
+/**
+ * Earliest and latest start date a block may currently be moved to, or `null`
+ * when no date would be accepted.
+ *
+ * An empty window is a real state, not a defensive branch: the bounds close in
+ * from both sides as a block fills up, and a caller handed `earliest > latest`
+ * would put `min` after `max` on a date input, which the browser refuses every
+ * value for — including the one already saved. `null` forces that case to be
+ * answered in the UI instead.
+ */
 export function startDateWindow({
   today,
   loggedDates,
 }: {
   today: IsoDate;
   loggedDates: IsoDate[];
-}): { earliest: IsoDate; latest: IsoDate } {
+}): { earliest: IsoDate; latest: IsoDate } | null {
   const logged = sorted(loggedDates);
   const first = logged.at(0);
   const last = logged.at(-1);
@@ -74,7 +83,7 @@ export function startDateWindow({
   const furthestAhead = addDays(today, MAX_START_DATE_DAYS_AHEAD);
   const latest = first && compareDates(first, furthestAhead) < 0 ? first : furthestAhead;
 
-  return { earliest, latest };
+  return compareDates(earliest, latest) > 0 ? null : { earliest, latest };
 }
 
 /**

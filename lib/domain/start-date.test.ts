@@ -109,25 +109,32 @@ describe("planStartDateMove", () => {
   });
 });
 
+function openWindow(today: IsoDate, loggedDates: IsoDate[]) {
+  const result = startDateWindow({ today, loggedDates });
+  if (!result) throw new Error("expected an open window");
+  return result;
+}
+
 describe("startDateWindow", () => {
   it("is bounded by today when nothing has been logged", () => {
-    expect(startDateWindow({ today: TODAY, loggedDates: [] })).toEqual({
+    expect(openWindow(TODAY, [])).toEqual({
       earliest: addDays(TODAY, -55),
       latest: addDays(TODAY, MAX_START_DATE_DAYS_AHEAD),
     });
   });
 
   it("closes to the first and last logged day once check-ins exist", () => {
-    expect(
-      startDateWindow({ today: TODAY, loggedDates: ["2026-02-21", "2026-02-28"] }),
-    ).toEqual({ earliest: addDays(TODAY, -55), latest: "2026-02-21" });
+    expect(openWindow(TODAY, ["2026-02-21", "2026-02-28"])).toEqual({
+      earliest: addDays(TODAY, -55),
+      latest: "2026-02-21",
+    });
   });
 
   it("keeps the block reaching a logged day that is later than today", () => {
     // A day logged ahead of today (a traveller crossing a date line) still has to
     // stay inside the block.
     const later = addDays(TODAY, 3);
-    expect(startDateWindow({ today: TODAY, loggedDates: [later] })).toEqual({
+    expect(openWindow(TODAY, [later])).toEqual({
       earliest: addDays(later, -55),
       latest: later,
     });
@@ -135,11 +142,26 @@ describe("startDateWindow", () => {
 
   it("every date in the window is accepted, and the days either side are not", () => {
     const loggedDates = ["2026-02-24", "2026-02-28"];
-    const { earliest, latest } = startDateWindow({ today: TODAY, loggedDates });
+    const { earliest, latest } = openWindow(TODAY, loggedDates);
 
     expect(move(earliest, loggedDates).allowed).toBe(true);
     expect(move(latest, loggedDates).allowed).toBe(true);
     expect(move(addDays(earliest, -1), loggedDates).allowed).toBe(false);
     expect(move(addDays(latest, 1), loggedDates).allowed).toBe(false);
+  });
+
+  it("is empty once the block's own days are behind the user", () => {
+    // A block that started 60 days ago and was logged from day one: it has to
+    // still cover today, which no start date on or before its first logged day
+    // can do. An inverted window would reach a date input as min > max.
+    const start = addDays(TODAY, -60);
+    expect(startDateWindow({ today: TODAY, loggedDates: [start, addDays(start, 1)] })).toBeNull();
+  });
+
+  it("cannot tell a finished block from a running one on its own", () => {
+    // With nothing logged the window stays open even for a block whose days are
+    // over, so "is this block finished" is asked separately (`isBlockComplete`)
+    // rather than inferred from an empty window.
+    expect(startDateWindow({ today: TODAY, loggedDates: [] })).not.toBeNull();
   });
 });
