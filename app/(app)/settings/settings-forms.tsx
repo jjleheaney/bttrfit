@@ -5,15 +5,25 @@ import {
   MAX_WEEKLY_DRINKS_TARGET,
   SENTINEL_LIFT_MENU,
   WEEKLY_DRINKS_OPTIONS,
+  blockEndDate,
   canSwapSentinelLift,
   formatTopSet,
+  isIsoDate,
   liftEntryForWeek,
+  type IsoDate,
   type SentinelLift,
   type UnitPreference,
 } from "@/lib/domain";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
-import { closeAccount, saveTargets, swapLift, type SettingsResult } from "./actions";
+import { formatLongDay } from "@/lib/format";
+import {
+  closeAccount,
+  saveStartDate,
+  saveTargets,
+  swapLift,
+  type SettingsResult,
+} from "./actions";
 
 const SELECT_CLASS =
   "w-full min-h-tap rounded-md border border-line bg-field px-4 text-body text-text focus-visible:border-accent focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent";
@@ -115,6 +125,68 @@ export function TargetsForm({
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
           {pending ? "Saving" : "Save targets"}
+        </Button>
+        {saved && !pending && <span className="text-caption text-text-muted">Saved.</span>}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * The start date, which is the origin the whole block is measured from: change it
+ * and today becomes a different day of the block, each check-in falls into a
+ * different week, and the end date follows.
+ *
+ * `min` and `max` narrow the picker to the dates that will be accepted, but they
+ * are a convenience only — the window is decided again in the Server Function,
+ * which is the enforcement point.
+ */
+export function StartDateForm({
+  startDate,
+  earliest,
+  latest,
+}: {
+  startDate: IsoDate;
+  earliest: IsoDate;
+  latest: IsoDate;
+}) {
+  const [draft, setDraft] = useState<string>(startDate);
+  const { error, saved, pending, run, clear } = useSaveState();
+
+  return (
+    <form
+      className="flex flex-col gap-3"
+      action={() => {
+        run(() => saveStartDate(draft));
+      }}
+    >
+      <Field label="Start date" htmlFor="start-date">
+        <Input
+          id="start-date"
+          type="date"
+          min={earliest}
+          max={latest}
+          value={draft}
+          onChange={(event) => {
+            clear();
+            setDraft(event.target.value);
+          }}
+        />
+        {/* The end date is generated from the start date, so showing where the
+            block would end is the clearest statement of what the move does. */}
+        <p className="text-caption text-text-muted">
+          {/* A date input can be left empty or half-typed, and `blockEndDate`
+              throws on anything that is not a real day. */}
+          {isIsoDate(draft)
+            ? `8 weeks, ending ${formatLongDay(blockEndDate(draft))}.`
+            : "8 weeks from the day you pick."}
+        </p>
+      </Field>
+
+      {error && <Error>{error}</Error>}
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending || draft === startDate}>
+          {pending ? "Saving" : "Save start date"}
         </Button>
         {saved && !pending && <span className="text-caption text-text-muted">Saved.</span>}
       </div>

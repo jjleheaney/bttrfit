@@ -1,10 +1,11 @@
 import { signOut } from "@/app/auth/actions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { startDateWindow } from "@/lib/domain";
 import { getBlockContext, getProfile } from "@/lib/data/blocks";
 import { createClient } from "@/lib/data/supabase/server";
-import { formatLongDay } from "@/lib/format";
-import { DeleteAccount, LiftSwap, TargetsForm } from "./settings-forms";
+import { currentDate } from "@/lib/data/today";
+import { DeleteAccount, LiftSwap, StartDateForm, TargetsForm } from "./settings-forms";
 
 /**
  * Everything about a block that can still be changed, and the two things that
@@ -12,9 +13,10 @@ import { DeleteAccount, LiftSwap, TargetsForm } from "./settings-forms";
  */
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const [profile, context, { data: auth }] = await Promise.all([
+  const [profile, context, today, { data: auth }] = await Promise.all([
     getProfile(),
     getBlockContext(),
+    currentDate(),
     supabase.auth.getUser(),
   ]);
   const block = context?.block ?? null;
@@ -34,12 +36,13 @@ export default async function SettingsPage() {
           <h2 className="text-caption uppercase tracking-wide text-text-muted">
             Block {block.blockNumber}
           </h2>
-          <dl className="tabular flex flex-col gap-1 text-body">
-            <Row label="Started">{formatLongDay(block.startDate)}</Row>
-            <Row label="Ends">{formatLongDay(block.endDate)}</Row>
-          </dl>
-          {/* The start date is missing on purpose: moving it renumbers all 56
-              days underneath entries that are already filed against them. */}
+          <StartDateForm
+            startDate={block.startDate}
+            {...startDateWindow({
+              today,
+              loggedDates: (context?.entries ?? []).map((entry) => entry.entryDate),
+            })}
+          />
           <TargetsForm
             unit={profile.unitPreference}
             startingWeight={block.startingWeight}
@@ -121,11 +124,3 @@ function ExportLink({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-line py-1">
-      <dt className="text-caption text-text-muted">{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
-}
