@@ -16,7 +16,10 @@ export type AuthState = {
  * Supabase error strings are provider-shaped ("email rate limit exceeded").
  * Errors here say what happened and what to do about it.
  */
-function friendlyAuthError(message: string): string {
+function friendlyAuthError(
+  message: string,
+  fallback = "Something went wrong creating the account. Try again in a moment.",
+): string {
   const text = message.toLowerCase();
   if (text.includes("rate limit") || text.includes("too many")) {
     return "Too many emails have been sent from this project. Wait a few minutes and try again.";
@@ -24,13 +27,16 @@ function friendlyAuthError(message: string): string {
   if (text.includes("already registered") || text.includes("already been registered")) {
     return "That email already has an account. Sign in instead.";
   }
+  if (text.includes("should be different")) {
+    return "That is already your password. Pick a different one.";
+  }
   if (text.includes("password")) {
     return "That password was rejected. Use at least 8 characters.";
   }
   if (text.includes("invalid") && text.includes("email")) {
     return "That email address is not valid.";
   }
-  return "Something went wrong creating the account. Try again in a moment.";
+  return fallback;
 }
 
 async function originUrl(path: string) {
@@ -112,7 +118,13 @@ export async function sendPasswordReset(
   });
 
   if (error) {
-    return { error: friendlyAuthError(error.message), values: { email } };
+    return {
+      error: friendlyAuthError(
+        error.message,
+        "Something went wrong sending the reset link. Try again in a moment.",
+      ),
+      values: { email },
+    };
   }
 
   // Deliberately the same sentence whether or not the address has an account:
@@ -146,7 +158,12 @@ export async function updatePassword(
   const { error } = await supabase.auth.updateUser({ password });
 
   if (error) {
-    return { error: friendlyAuthError(error.message) };
+    return {
+      error: friendlyAuthError(
+        error.message,
+        "Something went wrong saving the new password. Try again in a moment.",
+      ),
+    };
   }
 
   revalidatePath("/", "layout");
