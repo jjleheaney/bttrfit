@@ -5,7 +5,7 @@ import type { Database } from "./database.types";
 
 // `/offline` is the service worker's fallback page: it renders no user data, and
 // redirecting it to /login would mean caching a redirect instead of the shell.
-const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/offline"];
+const PUBLIC_PATHS = ["/login", "/signup", "/auth", "/offline", "/forgot-password"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -55,6 +55,10 @@ export async function updateSession(request: NextRequest) {
     return redirectPreservingCookies(redirectUrl, response);
   }
 
+  // /reset-password is deliberately absent from PUBLIC_PATHS and from this
+  // redirect: the recovery link signs you in before you land there, so it needs
+  // a session, and someone already signed in still has to be allowed to change
+  // their password.
   if (user && (pathname === "/login" || pathname === "/signup")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/";

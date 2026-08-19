@@ -96,6 +96,63 @@ export async function sendMagicLink(
   return { message: `Link sent to ${email}. It expires in one hour.` };
 }
 
+export async function sendPasswordReset(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { error: "Enter your email address." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: await originUrl("/auth/confirm?next=/reset-password"),
+  });
+
+  if (error) {
+    return { error: friendlyAuthError(error.message), values: { email } };
+  }
+
+  // Deliberately the same sentence whether or not the address has an account:
+  // a different answer would let anyone test who has signed up.
+  return {
+    message: `If ${email} has an account, a reset link is on its way. It expires in one hour.`,
+  };
+}
+
+export async function updatePassword(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 8) {
+    return { error: "Passwords need at least 8 characters." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // The recovery link is what signs you in, so no session means the link was
+  // never followed, has expired, or has already been spent.
+  if (!user) {
+    return { error: "That reset link has expired. Request a new one." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: friendlyAuthError(error.message) };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/");
+}
+
 export async function signUp(
   _state: AuthState,
   formData: FormData,
