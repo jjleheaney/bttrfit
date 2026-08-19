@@ -86,43 +86,86 @@ describe("contactSheet", () => {
     }
   });
 
-  it("fills the weight row against the week's own spread, lightest day full", () => {
+  it("prints the day's weight to one decimal in the cell", () => {
     const entries = [
-      entry({ entryDate: "2026-01-05", weight: 96.0 }),
-      entry({ entryDate: "2026-01-06", weight: 95.0 }),
-      entry({ entryDate: "2026-01-07", weight: 95.5 }),
+      entry({ entryDate: "2026-01-05", weight: 96 }),
+      entry({ entryDate: "2026-01-06", weight: 95.04 }),
     ];
     const weight = row(contactSheet(entries, BLOCK, 1, "2026-01-07"), "weight");
 
-    expect(weight.cells[0].fill).toBe(0);
-    expect(weight.cells[1].fill).toBe(1);
-    expect(weight.cells[2].fill).toBeCloseTo(0.5, 5);
+    expect(weight.cells.map((cell) => cell.value)).toEqual([
+      "96.0",
+      "95.0",
+      null,
+      null,
+      null,
+      null,
+      null,
+    ]);
     expect(weight.cells[0].label).toBe("96.0");
+    // A weigh-in is never a pass or a fail, so it stays out of miss/over.
+    expect(weight.cells[0].state).toBe("hit");
   });
 
-  it("fills a lone weigh-in rather than dividing by a spread of zero", () => {
-    const weight = row(
-      contactSheet([entry({ entryDate: "2026-01-05", weight: 95.8 })], BLOCK, 1, "2026-01-05"),
-      "weight",
+  it("counts a logged zero as an answer rather than an empty square", () => {
+    const drinks = row(
+      contactSheet([entry({ entryDate: "2026-01-05", drinks: 0 })], BLOCK, 1, "2026-01-05"),
+      "drinks",
     );
-    expect(weight.cells[0].fill).toBe(1);
+    expect(drinks.cells[0].state).toBe("hit");
+    expect(drinks.cells[0].value).toBe("0");
+    expect(drinks.cells[0].label).toContain("0 drinks");
   });
 
-  it("fills the drinks row by the share of the week's allowance a day used", () => {
+  it("goes over on the day the week's target is passed, and stays over", () => {
+    // Target is three: two on Monday is inside it, two more on Tuesday is not,
+    // and Wednesday being dry does not put the week back inside it.
     const entries = [
-      entry({ entryDate: "2026-01-05", drinks: 0 }),
-      entry({ entryDate: "2026-01-06", drinks: 1 }),
-      entry({ entryDate: "2026-01-07", drinks: 6 }),
+      entry({ entryDate: "2026-01-05", drinks: 2 }),
+      entry({ entryDate: "2026-01-06", drinks: 2 }),
+      entry({ entryDate: "2026-01-07", drinks: 0 }),
     ];
     const drinks = row(contactSheet(entries, BLOCK, 1, "2026-01-07"), "drinks");
 
-    expect(drinks.cells[0].fill).toBe(0);
+    expect(drinks.cells.slice(0, 3).map((cell) => cell.state)).toEqual(["hit", "over", "over"]);
+    expect(drinks.cells.map((cell) => cell.value).slice(0, 3)).toEqual(["2", "2", "0"]);
+    expect(drinks.cells[1].label).toBe("2 drinks, 4 of 3 this week: over");
+    expect(drinks.cells[2].label).toBe("0 drinks, 4 of 3 this week: over");
+  });
+
+  it("is exactly at the target, not over it, when the target is spent", () => {
+    const drinks = row(
+      contactSheet([entry({ entryDate: "2026-01-05", drinks: 3 })], BLOCK, 1, "2026-01-05"),
+      "drinks",
+    );
     expect(drinks.cells[0].state).toBe("hit");
-    expect(drinks.cells[1].fill).toBeCloseTo(1 / 3, 5);
-    // Six drinks against a target of three is capped, not drawn overflowing.
-    expect(drinks.cells[2].fill).toBe(1);
-    expect(drinks.cells[1].label).toBe("1 drink");
-    expect(drinks.cells[2].label).toBe("6 drinks");
+  });
+
+  it("treats any drink as over when the target is none", () => {
+    const teetotal = { ...BLOCK, weeklyDrinksTarget: 0 };
+    const drinks = row(
+      contactSheet(
+        [
+          entry({ entryDate: "2026-01-05", drinks: 0 }),
+          entry({ entryDate: "2026-01-06", drinks: 1 }),
+        ],
+        teetotal,
+        1,
+        "2026-01-06",
+      ),
+      "drinks",
+    );
+    expect(drinks.cells.slice(0, 2).map((cell) => cell.state)).toEqual(["hit", "over"]);
+  });
+
+  it("counts only the week it is drawing, not the drinks of earlier weeks", () => {
+    const entries = [
+      entry({ entryDate: "2026-01-05", drinks: 4 }),
+      entry({ entryDate: "2026-01-12", drinks: 1 }),
+    ];
+    const secondWeek = row(contactSheet(entries, BLOCK, 2, "2026-01-12"), "drinks");
+    expect(secondWeek.cells[0].state).toBe("hit");
+    expect(secondWeek.cells[0].label).toBe("1 drink, 1 of 3 this week");
   });
 
   it("labels every cell for a screen reader rather than relying on colour", () => {
@@ -138,8 +181,20 @@ describe("contactSheet", () => {
     const rows = contactSheet(demoDailyEntries(), DEMO_BLOCK, 3, "2026-03-01");
     expect(
       rows.every((sheetRow) =>
-        sheetRow.cells.every((cell) => cell.state === "hit" || cell.state === "miss"),
+        sheetRow.cells.every(
+          (cell) => cell.state === "hit" || cell.state === "miss" || cell.state === "over",
+        ),
       ),
     ).toBe(true);
+  });
+
+  it("prints a number only on the rows that measure one", () => {
+    const rows = contactSheet(demoDailyEntries(), DEMO_BLOCK, 3, "2026-03-01");
+    for (const sheetRow of rows) {
+      const measured = sheetRow.key === "weight" || sheetRow.key === "drinks";
+      for (const cell of sheetRow.cells) {
+        expect(cell.value === null).toBe(!measured);
+      }
+    }
   });
 });

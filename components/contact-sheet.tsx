@@ -48,19 +48,23 @@ function Cell({ cell, row }: { cell: SheetCell; row: string }) {
     return <Square title={title} className="border border-text" />;
   }
 
-  if (cell.fill === null) {
+  if (cell.value === null) {
     return <Square title={title} className="bg-hit" />;
   }
 
-  // The two proportional rows: a fill height rather than a status colour, because
-  // neither weight nor a drink is a pass or a fail on its own.
+  // The measured rows carry their own number, so the square is solid and the
+  // figure sits on it: a week of weights and a week of drinks, both readable
+  // without decoding a fill height. Red is reserved for the week going over.
   return (
-    <Square title={title} className="relative border border-line">
-      <span
-        aria-hidden
-        className="absolute inset-x-0 bottom-0 bg-text"
-        style={{ height: `${Math.round(cell.fill * 100)}%` }}
-      />
+    <Square
+      title={title}
+      className={
+        cell.state === "over" ? "bg-miss text-miss-contrast" : "bg-text text-ground"
+      }
+    >
+      <span aria-hidden className="tabular flex h-full w-full items-center justify-center text-cell">
+        {cell.value}
+      </span>
     </Square>
   );
 }

@@ -9,10 +9,15 @@ import type { Block, DailyEntry, IsoDate } from "./types";
  */
 
 export type CellState =
-  /** Answered yes, or a proportional row with something to show. */
+  /** Answered yes, or a measured row with a value to show. */
   | "hit"
   /** Answered no. */
   | "miss"
+  /**
+   * Answered, and past the point where the answer is still within the block's
+   * own target. Only drinks can reach it: nothing else has a weekly allowance.
+   */
+  | "over"
   /** The day has happened and this question was left blank. */
   | "unanswered"
   /** The day has not happened yet. Never a miss. */
@@ -22,10 +27,11 @@ export type SheetCell = {
   date: IsoDate;
   state: CellState;
   /**
-   * 0-1 for the two rows the brief specifies as proportional rather than binary,
-   * `null` everywhere else. A `hit` cell with a fill is drawn part-filled.
+   * The number to print in the square, for the rows that carry one rather than a
+   * yes or a no, and `null` for the binary rows. Formatted here so the grid, the
+   * React Native port and the screen reader all say the same thing.
    */
-  fill: number | null;
+  value: string | null;
   /** Read out to screen readers, so it has to say the value, not the colour. */
   label: string;
 };
@@ -52,21 +58,10 @@ function binaryCell(
   value: boolean | null | undefined,
   future: boolean,
 ): SheetCell {
-  if (future) return { date, state: "future", fill: null, label: `${label} not yet` };
-  if (value === true) return { date, state: "hit", fill: null, label: `${label} hit` };
-  if (value === false) return { date, state: "miss", fill: null, label: `${label} missed` };
-  return { date, state: "unanswered", fill: null, label: `${label} not answered` };
-}
-
-/**
- * Weight is relative to the week's own spread: the lightest day of the week fills
- * the square, the heaviest leaves it nearly empty. It is a shape, not a score —
- * the trend line above the sheet is where the actual number lives. A week with a
- * single weigh-in has no spread, so that day reads as full.
- */
-function weightFill(weight: number, lightest: number, heaviest: number): number {
-  if (heaviest - lightest < 0.05) return 1;
-  return (heaviest - weight) / (heaviest - lightest);
+  if (future) return { date, state: "future", value: null, label: `${label} not yet` };
+  if (value === true) return { date, state: "hit", value: null, label: `${label} hit` };
+  if (value === false) return { date, state: "miss", value: null, label: `${label} missed` };
+  return { date, state: "unanswered", value: null, label: `${label} not answered` };
 }
 
 export function contactSheet(
@@ -79,46 +74,47 @@ export function contactSheet(
   const byDate = new Map(entries.map((entry) => [entry.entryDate, entry]));
   const isFuture = (date: IsoDate) => compareDates(date, today) > 0;
 
-  const weights = dates
-    .map((date) => byDate.get(date)?.weight)
-    .filter((weight): weight is number => typeof weight === "number");
-  const lightest = Math.min(...weights);
-  const heaviest = Math.max(...weights);
-
   const weightRow: SheetRow = {
     key: "weight",
     label: "Weight",
     cells: dates.map((date) => {
       const weight = byDate.get(date)?.weight ?? null;
-      if (isFuture(date)) return { date, state: "future", fill: null, label: "Not yet" };
+      if (isFuture(date)) return { date, state: "future", value: null, label: "Not yet" };
       if (weight === null)
-        return { date, state: "unanswered", fill: null, label: "Not weighed" };
-      return {
-        date,
-        state: "hit",
-        fill: weightFill(weight, lightest, heaviest),
-        label: `${weight.toFixed(1)}`,
-      };
+        return { date, state: "unanswered", value: null, label: "Not weighed" };
+      // The day's own figure, so the row reads as a week of weights rather than a
+      // shape whose meaning has to be remembered.
+      return { date, state: "hit", value: weight.toFixed(1), label: `${weight.toFixed(1)}` };
     }),
   };
+
+  // Running total, not the day in isolation: it is the week that has an
+  // allowance, so the day it is spent and every day after it are over target,
+  // and one heavy Friday does not go quietly because Saturday was dry.
+  let drinksSoFar = 0;
 
   const drinksRow: SheetRow = {
     key: "drinks",
     label: "Drinks",
     cells: dates.map((date) => {
       const drinks = byDate.get(date)?.drinks ?? null;
-      if (isFuture(date)) return { date, state: "future", fill: null, label: "Not yet" };
+      if (isFuture(date)) return { date, state: "future", value: null, label: "Not yet" };
       if (drinks === null)
-        return { date, state: "unanswered", fill: null, label: "Drinks not answered" };
-      // Filled by the share of the week's whole allowance the day used, so one
-      // heavy night reads as heavy. Zero is an empty square, not a miss.
-      const target = block.weeklyDrinksTarget;
-      const fill = target <= 0 ? (drinks > 0 ? 1 : 0) : Math.min(1, drinks / target);
+        return { date, state: "unanswered", value: null, label: "Drinks not answered" };
+
+      drinksSoFar += drinks;
+      const over = drinksSoFar > block.weeklyDrinksTarget;
+      const counted = drinks === 1 ? "1 drink" : `${drinks} drinks`;
+
+      // A logged zero is an answer and reads as one. Its own state is the week's,
+      // so a dry day after the target is spent is not scored as back inside it.
       return {
         date,
-        state: "hit",
-        fill,
-        label: drinks === 1 ? "1 drink" : `${drinks} drinks`,
+        state: over ? "over" : "hit",
+        value: String(drinks),
+        label: over
+          ? `${counted}, ${drinksSoFar} of ${block.weeklyDrinksTarget} this week: over`
+          : `${counted}, ${drinksSoFar} of ${block.weeklyDrinksTarget} this week`,
       };
     }),
   };
