@@ -109,12 +109,92 @@ Reliable procedure:
 
 Inbox URL: `https://www.mailinator.com/v4/public/inboxes.jsp?to=<local-part>` — public, no login.
 
+Mailinator's free tier sometimes refuses to render the message body (*"Personal use limit
+triggered"*) and sometimes renders it fine minutes later. If the body will not render, the inbox
+*listing* still proves delivery; get the token via `admin/generate_link` instead (below).
+
+## Testing the password-reset flow (`/forgot-password`, `/reset-password`)
+
+Routes: `/forgot-password` is in `PUBLIC_PATHS`; `/reset-password` deliberately is **not**, because
+the recovery link signs you in first. Signed-out `/reset-password` should 307 to
+`/login?next=%2Freset-password`. The "Forgotten your password?" link renders **only** in password
+mode, so toggle `Use a password instead` before looking for it.
+
+**The reset happy path is vacuous unless you test both passwords afterwards.** Following the link,
+saving a new password, and seeing yourself signed in looks *identical* if `updateUser({password})`
+silently did nothing — because the recovery token itself created the session. The real
+discriminators are: sign out, confirm the **new** password signs in, and confirm the **old** one is
+rejected with *"That email and password did not match."* Corroborate server-side by comparing
+`md5(encrypted_password)` before and after (never print the hash itself).
+
+Recovery links are the same PKCE shape as magic links, so the iframe trap above applies — open them
+top-level from the address bar. A recovery token is single-use, and a *failed* iframe attempt still
+burns it; request a fresh one rather than assuming the app is broken. The burned token is then a
+free oracle for the expired-link case: it should land on `/login?error=link_expired` reading
+*"That link has expired or has already been used. Request a new one."*
+
+Admin-API fallback when the inbox is unreadable (same token shape the email carries):
+
+```bash
+curl -s -X POST "$URL/auth/v1/admin/generate_link" -H "apikey: $SERVICE" -H "Authorization: Bearer $SERVICE" \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"recovery","email":"...","redirect_to":"http://localhost:3000/auth/confirm?next=/reset-password"}'
+# -> verification_type: recovery, hashed_token (56 chars); open
+#    /auth/confirm?token_hash=<t>&type=recovery&next=/reset-password  (verifyOtp path, no PKCE cookie needed)
+```
+
+Neutral-response check: the unknown-email and known-email sentences must be identical apart from the
+address. Diff the two captured strings programmatically instead of eyeballing them, and check the
+styling too — a `role="status"`/muted paragraph for both, never `text-miss` for one.
+
+If the branch calls `signOut({ scope: "others" })` after the password change, prove it cheaply
+without a second browser: mint a sibling session via the password grant, refresh it once to show it
+is live (200), reset the password in the browser, then refresh again and expect
+`400 refresh_token_not_found` while the browser session stays signed in. Note that GoTrue **rotates**
+refresh tokens, so keep the token returned by the last refresh, not the original.
+
+### Gotcha: `PGRST303 "JWT issued at future"` right after a token is minted
+
+Locally, the first data query immediately after GoTrue mints a session can fail with
+`{"code":"PGRST303","message":"JWT issued at future"}`, rendering the app's *"This page couldn't
+load / A server error occurred"* screen. Seen right after signup (`/start`) and right after the
+post-reset redirect to `/`. A plain reload fixes it, and no data is lost.
+
+It is a sub-second clock race between GoTrue and PostgREST, not an app bug and not local clock drift
+— confirm before blaming either by comparing clocks (all agreed within 1s when this fired):
+
+```bash
+date -u; curl -sI $SUPABASE_URL/auth/v1/health | grep -i '^date:'
+```
+
+It did **not** reproduce on deployed production in the same session, so treat it as a
+local-dev-only annoyance unless you actually observe it on prod — but do re-check on prod before
+telling anyone it is harmless.
+
+## Typing into these forms: clear fields defensively
+
+Two harness behaviours corrupt typed values and silently invalidate email/password assertions:
+- The **first few keystrokes get swallowed** (autofill/focus race), turning
+  `bttrfit.pr40.nosuch@…` into `it.pr40.nosuch@…`. Type a throwaway char first, or type in short
+  chunks with a brief pause, and **always read the value back from the DOM before submitting**.
+- `ctrl+a` only selects the field when the field already has focus — otherwise it selects the whole
+  page and the subsequent typing goes nowhere. `triple_click` on these inputs has also inserted text
+  mid-value rather than replacing it. Reliable clear: `left_click` the field → `End` → `ctrl+a` →
+  `BackSpace`, then verify the input is empty before typing.
+
+The app echoes the submitted email back in the reset confirmation sentence, which makes a mistyped
+address easy to catch — use that echo as the check.
+
 ### Golden-path notes for a fresh production user
-- `/start` is an 8-step wizard: name → units → weight → protein (auto-suggested from bodyweight) →
-  drinks → three lift `select`s → per-lift `Reps`/`Weight` → start date. It refuses with
+- `/start` is a **7-step** wizard: name → units → weight → protein (auto-suggested from bodyweight) →
+  drinks (five buttons `0..4`) → three lift `select`s → per-lift `Reps`/`Weight`. It refuses with
   *"Block N is already running"* if a non-expired block exists, so use a brand-new user.
-- **Pick `Today`, not `Next Monday`**, or week 1 has not elapsed and the contact sheet is entirely
-  `future` — which proves nothing about rendering real data.
+- **There is no start-date step any more** (removed in the setup-friction change); the client always
+  submits `startDate: today`, and the last step's button reads **Start the block**. If you are
+  testing an older revision you may still see an 8th "When does the block start?" step — check the
+  `Step N of M` header rather than assuming.
+- Because the block always starts today, make the date assertion non-vacuous by noting what the old
+  `nextMonday()` default *would* have produced and showing the rendered strings differ.
 - The wizard's top sets already create week-1 lift entries, so `/lifts` is pre-filled. To actually
   exercise the write path, **edit** a value before pressing `Save week N lifts`; re-saving identical
   numbers would pass even if the save were broken.
