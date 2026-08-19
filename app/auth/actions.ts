@@ -166,6 +166,13 @@ export async function updatePassword(
     };
   }
 
+  // A forgotten password is often a stolen or borrowed one. Every other session
+  // on the account is dropped and only this device stays signed in, so changing
+  // the password actually ends the old access rather than leaving it live until
+  // its refresh token happens to lapse. Best effort: the password is already
+  // changed by this point, and failing to revoke is not worth refusing that.
+  await supabase.auth.signOut({ scope: "others" });
+
   revalidatePath("/", "layout");
   redirect("/");
 }
