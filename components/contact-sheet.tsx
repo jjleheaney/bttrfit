@@ -58,11 +58,19 @@ function Cell({ cell, row }: { cell: SheetCell; row: string }) {
   return (
     <Square
       title={title}
-      className={
+      className={`@container ${
         cell.state === "over" ? "bg-miss text-miss-contrast" : "bg-text text-ground"
-      }
+      }`}
     >
-      <span aria-hidden className="tabular flex h-full w-full items-center justify-center text-cell">
+      <span
+        aria-hidden
+        className="tabular flex h-full w-full items-center justify-center"
+        // Shrinks with its own square rather than being clipped by it. Plex Mono
+        // advances 0.6em per glyph, so the widest figure the grid draws — five,
+        // as in "105.3" — needs a third of the cell. Above that width the token
+        // wins and every cell in the row reads at the same size.
+        style={{ fontSize: "min(var(--text-cell), 33cqw)" }}
+      >
         {cell.value}
       </span>
     </Square>
