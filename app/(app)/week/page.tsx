@@ -194,7 +194,7 @@ export default async function WeekPage({
           className="flex flex-col gap-1 rounded-md border border-line bg-surface px-3 py-2"
         >
           <h2 id="focus" className="text-caption uppercase tracking-wide text-text-muted">
-            Next week, fix one thing
+            {summary.focus.kind === "fix" ? "Next week, fix one thing" : "Next week, hold the line"}
           </h2>
           <p className="text-caption">{summary.focus.copy}</p>
         </section>

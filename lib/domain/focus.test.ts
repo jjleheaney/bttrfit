@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FOCUS_COPY, FOCUS_PRIORITY, weeklyFocus } from "./focus";
+import { FOCUS_COPY, FOCUS_PRIORITY, HOLD_COPY, weeklyFocus } from "./focus";
 import { weeklyCompliance, type WeeklyCompliance } from "./compliance";
 import { DEMO_BLOCK, demoDailyEntries } from "./fixtures";
 
@@ -28,7 +28,12 @@ describe("weeklyFocus", () => {
     const focus = weeklyFocus(
       compliance({ steps: { days: 2, answered: 7, rate: 2 / 7, answeredRate: 2 / 7 } }),
     );
-    expect(focus).toEqual({ metric: "steps", rate: 2 / 7, copy: FOCUS_COPY.steps });
+    expect(focus).toEqual({
+      kind: "fix",
+      metric: "steps",
+      rate: 2 / 7,
+      copy: FOCUS_COPY.steps,
+    });
   });
 
   it("picks the lowest-compliance metric", () => {
@@ -54,7 +59,7 @@ describe("weeklyFocus", () => {
   });
 
   it("treats being at the drinks target as full marks, and scales the overshoot", () => {
-    expect(metric({ totalDrinks: 3, drinksTargetMet: true })).toBe("protein"); // nothing is low
+    expect(metric({ totalDrinks: 3, drinksTargetMet: true })).toBeNull(); // nothing is low
     const sleep = { days: 4, answered: 7, rate: 4 / 7, answeredRate: 4 / 7 };
     // Six against a target of three scores 0.5, below the 0.57 sleep week.
     expect(metric({ totalDrinks: 6, drinksTargetMet: false, sleep })).toBe("alcohol");
@@ -89,6 +94,24 @@ describe("weeklyFocus", () => {
 
   it("has nothing to recommend for a week with nothing logged", () => {
     expect(weeklyFocus(compliance({ daysLogged: 0 }))).toBeNull();
+  });
+
+  it("holds rather than naming a metric when nothing was missed", () => {
+    // The default fixture is a perfect week. Ranking it anyway is how a week of
+    // 100% protein ends up being told that protein is the one to fix.
+    expect(weeklyFocus(compliance())).toEqual({
+      kind: "hold",
+      metric: null,
+      rate: 1,
+      copy: HOLD_COPY,
+    });
+  });
+
+  it("names a metric again as soon as anything is missed", () => {
+    const oneDayShort = { days: 6, answered: 7, rate: 6 / 7, answeredRate: 6 / 7 };
+    expect(metric({ sleep: oneDayShort })).toBe("sleep");
+    expect(metric({ workoutsCompleted: 3 })).toBe("workouts");
+    expect(metric({ totalDrinks: 4, drinksTargetMet: false })).toBe("alcohol");
   });
 
   it("does not treat an unanswered metric as a failure", () => {
