@@ -157,7 +157,9 @@ export default async function BlockReviewPage() {
           className="flex flex-col gap-1 rounded-md border border-line bg-surface px-3 py-2"
         >
           <h2 id="weakest" className="text-caption uppercase tracking-wide text-text-muted">
-            What let you down most consistently
+            {summary.weakestMetric.kind === "fix"
+              ? "What let you down most consistently"
+              : "Nothing let you down"}
           </h2>
           <p className="text-caption">{summary.weakestMetric.copy}</p>
           <p className="tabular text-caption text-text-muted">

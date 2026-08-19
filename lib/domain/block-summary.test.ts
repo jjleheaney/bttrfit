@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockSummary, weakestMetric, weeksStarted } from "./block-summary";
+import { BLOCK_HOLD_COPY, blockSummary, weakestMetric, weeksStarted } from "./block-summary";
 import {
   DEMO_BLOCK,
   DEMO_BLOCK_START,
@@ -226,5 +226,25 @@ describe("weakestMetric", () => {
 
   it("is null when no week has anything logged", () => {
     expect(weakestMetric(blockSummary(DEMO_BLOCK, [], [], AFTER_BLOCK).weeks)).toBeNull();
+  });
+
+  it("holds rather than blaming a metric when nothing was missed all block", () => {
+    // Every answered metric hit, every week: "what let you down most
+    // consistently" has no honest answer, so it must not invent one.
+    const perfect = demoDailyEntries().map((entry) => ({
+      ...entry,
+      proteinHit: true,
+      sleepHit: true,
+      stepsHit: true,
+      workoutDone: true,
+      drinks: 0,
+    }));
+    const summary = blockSummary(DEMO_BLOCK, perfect, demoSentinelLifts(), AFTER_BLOCK);
+    expect(summary.weakestMetric).toEqual({
+      kind: "hold",
+      metric: null,
+      rate: 1,
+      copy: BLOCK_HOLD_COPY,
+    });
   });
 });

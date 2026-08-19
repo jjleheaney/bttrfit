@@ -202,6 +202,10 @@ function blockCompliance(weeks: BlockWeek[], block: Block, today: IsoDate): Bloc
  * and a metric that was quietly missed every single week should win even though
  * no single week looks alarming.
  */
+/** The block-length counterpart to `HOLD_COPY`: eight weeks with nothing missed. */
+export const BLOCK_HOLD_COPY =
+  "Nothing let you down. Every metric you answered landed in every week you logged, which is rarer than the numbers above make it look.";
+
 export function weakestMetric(weeks: BlockWeek[]): WeeklyFocus | null {
   const logged = weeks.filter((week) => week.compliance.daysLogged > 0);
   if (logged.length === 0) return null;
@@ -213,11 +217,15 @@ export function weakestMetric(weeks: BlockWeek[]): WeeklyFocus | null {
       logged.length;
   }
 
+  if (FOCUS_PRIORITY.every((key) => means[key] >= 1)) {
+    return { kind: "hold", metric: null, rate: 1, copy: BLOCK_HOLD_COPY };
+  }
+
   const metric = FOCUS_PRIORITY.reduce((lowest, candidate) =>
     means[candidate] < means[lowest] ? candidate : lowest,
   );
 
-  return { metric, rate: means[metric], copy: FOCUS_COPY[metric] };
+  return { kind: "fix", metric, rate: means[metric], copy: FOCUS_COPY[metric] };
 }
 
 /**

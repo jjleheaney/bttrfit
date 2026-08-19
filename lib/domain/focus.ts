@@ -23,12 +23,23 @@ export const FOCUS_COPY: Record<MetricKey, string> = {
   alcohol: "Drinks are the one to fix next week. Pick which nights before the week starts, rather than deciding each evening.",
 };
 
-export type WeeklyFocus = {
-  metric: MetricKey;
-  /** 0-1, the comparable rate the ranking used. */
-  rate: number;
-  copy: string;
-};
+/**
+ * Shown when the ranking finds nothing below full marks. Naming a "worst" metric
+ * anyway is how a week of 100% ends up being told to fix protein, which reads as
+ * the app not having looked.
+ */
+export const HOLD_COPY =
+  "Nothing to fix next week. Everything you answered this week landed, so the job is repeating it — eight weeks of the same week is what the block is.";
+
+export type WeeklyFocus =
+  | {
+      kind: "fix";
+      metric: MetricKey;
+      /** 0-1, the comparable rate the ranking used. */
+      rate: number;
+      copy: string;
+    }
+  | { kind: "hold"; metric: null; rate: number; copy: string };
 
 /**
  * Alcohol is scored against the block's target rather than as a per-day rate: at
@@ -65,15 +76,20 @@ export function comparableRates(compliance: WeeklyCompliance): Record<MetricKey,
 /**
  * Exactly one recommendation per week. Presenting all the gaps at once reliably
  * produces zero change. `null` only when the week is empty, where there is
- * nothing to recommend from.
+ * nothing to recommend from, and `kind: "hold"` when there is nothing to fix.
  */
 export function weeklyFocus(compliance: WeeklyCompliance): WeeklyFocus | null {
   if (compliance.daysLogged === 0) return null;
 
   const rates = comparableRates(compliance);
+
+  if (FOCUS_PRIORITY.every((key) => rates[key] >= 1)) {
+    return { kind: "hold", metric: null, rate: 1, copy: HOLD_COPY };
+  }
+
   const metric = FOCUS_PRIORITY.reduce((lowest, candidate) =>
     rates[candidate] < rates[lowest] ? candidate : lowest,
   );
 
-  return { metric, rate: rates[metric], copy: FOCUS_COPY[metric] };
+  return { kind: "fix", metric, rate: rates[metric], copy: FOCUS_COPY[metric] };
 }
