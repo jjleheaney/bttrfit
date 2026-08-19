@@ -125,6 +125,10 @@
   --text-display--line-height: 2.125rem;
   --text-hero: 2.75rem;
   --text-hero--line-height: 2.75rem;
+  /* Below the 16px floor deliberately: the only text here is a number inside a
+     grid square, never an input and never prose. */
+  --text-cell: 0.6875rem;
+  --text-cell--line-height: 0.6875rem;
 
   --spacing-tap: 3rem;
 }

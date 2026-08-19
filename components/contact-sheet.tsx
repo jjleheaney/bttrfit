@@ -48,19 +48,31 @@ function Cell({ cell, row }: { cell: SheetCell; row: string }) {
     return <Square title={title} className="border border-text" />;
   }
 
-  if (cell.fill === null) {
+  if (cell.value === null) {
     return <Square title={title} className="bg-hit" />;
   }
 
-  // The two proportional rows: a fill height rather than a status colour, because
-  // neither weight nor a drink is a pass or a fail on its own.
+  // The measured rows carry their own number, so the square is solid and the
+  // figure sits on it: a week of weights and a week of drinks, both readable
+  // without decoding a fill height. Red is reserved for the week going over.
   return (
-    <Square title={title} className="relative border border-line">
+    <Square
+      title={title}
+      className={`@container ${
+        cell.state === "over" ? "bg-miss text-miss-contrast" : "bg-text text-ground"
+      }`}
+    >
       <span
         aria-hidden
-        className="absolute inset-x-0 bottom-0 bg-text"
-        style={{ height: `${Math.round(cell.fill * 100)}%` }}
-      />
+        className="tabular flex h-full w-full items-center justify-center"
+        // Shrinks with its own square rather than being clipped by it. Plex Mono
+        // advances 0.6em per glyph, so the widest figure the grid draws — five,
+        // as in "105.3" — needs a third of the cell. Above that width the token
+        // wins and every cell in the row reads at the same size.
+        style={{ fontSize: "min(var(--text-cell), 33cqw)" }}
+      >
+        {cell.value}
+      </span>
     </Square>
   );
 }
