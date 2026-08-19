@@ -92,6 +92,13 @@ export function LoginForm({
         >
           {mode === "link" ? "Use a password instead" : "Email me a link instead"}
         </button>
+        {mode === "password" && (
+          <p>
+            <Link href="/forgot-password" className="underline">
+              Forgotten your password?
+            </Link>
+          </p>
+        )}
         <p>
           No account yet?{" "}
           <Link href="/signup" className="underline">

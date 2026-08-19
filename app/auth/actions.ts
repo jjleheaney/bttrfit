@@ -16,7 +16,10 @@ export type AuthState = {
  * Supabase error strings are provider-shaped ("email rate limit exceeded").
  * Errors here say what happened and what to do about it.
  */
-function friendlyAuthError(message: string): string {
+function friendlyAuthError(
+  message: string,
+  fallback = "Something went wrong creating the account. Try again in a moment.",
+): string {
   const text = message.toLowerCase();
   if (text.includes("rate limit") || text.includes("too many")) {
     return "Too many emails have been sent from this project. Wait a few minutes and try again.";
@@ -24,13 +27,16 @@ function friendlyAuthError(message: string): string {
   if (text.includes("already registered") || text.includes("already been registered")) {
     return "That email already has an account. Sign in instead.";
   }
+  if (text.includes("should be different")) {
+    return "That is already your password. Pick a different one.";
+  }
   if (text.includes("password")) {
     return "That password was rejected. Use at least 8 characters.";
   }
   if (text.includes("invalid") && text.includes("email")) {
     return "That email address is not valid.";
   }
-  return "Something went wrong creating the account. Try again in a moment.";
+  return fallback;
 }
 
 async function originUrl(path: string) {
@@ -94,6 +100,81 @@ export async function sendMagicLink(
   }
 
   return { message: `Link sent to ${email}. It expires in one hour.` };
+}
+
+export async function sendPasswordReset(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!email) {
+    return { error: "Enter your email address." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: await originUrl("/auth/confirm?next=/reset-password"),
+  });
+
+  if (error) {
+    return {
+      error: friendlyAuthError(
+        error.message,
+        "Something went wrong sending the reset link. Try again in a moment.",
+      ),
+      values: { email },
+    };
+  }
+
+  // Deliberately the same sentence whether or not the address has an account:
+  // a different answer would let anyone test who has signed up.
+  return {
+    message: `If ${email} has an account, a reset link is on its way. It expires in one hour.`,
+  };
+}
+
+export async function updatePassword(
+  _state: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 8) {
+    return { error: "Passwords need at least 8 characters." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // The recovery link is what signs you in, so no session means the link was
+  // never followed, has expired, or has already been spent.
+  if (!user) {
+    return { error: "That reset link has expired. Request a new one." };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return {
+      error: friendlyAuthError(
+        error.message,
+        "Something went wrong saving the new password. Try again in a moment.",
+      ),
+    };
+  }
+
+  // A forgotten password is often a stolen or borrowed one. Every other session
+  // on the account is dropped and only this device stays signed in, so changing
+  // the password actually ends the old access rather than leaving it live until
+  // its refresh token happens to lapse. Best effort: the password is already
+  // changed by this point, and failing to revoke is not worth refusing that.
+  await supabase.auth.signOut({ scope: "others" });
+
+  revalidatePath("/", "layout");
+  redirect("/");
 }
 
 export async function signUp(
